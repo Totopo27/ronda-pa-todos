@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Tanda de ahorro circular en Stellar testnet: el orden de cobro lo sortea la red." />
+    <title>RondaPa' Todos — tanda en testnet</title>
+    <link rel="stylesheet" href="/src/estilo.css" />
+  </head>
+  <body>
+    <header>
+      <h1>RondaPa' Todos</h1>
+      <p class="lema">
+        Tanda de ahorro circular en Stellar testnet. Todos ponen la misma cuota, cada uno cobra el
+        pozo completo una sola vez, y el orden de cobro lo sortea la red. Sin admin: nadie puede
+        cambiar el grupo, la cuota ni el orden después del despliegue.
+      </p>
+
+      <form id="form-contrato" class="buscador" novalidate>
+        <label for="contrato">ID del contrato de tu tanda</label>
+        <div class="fila">
+          <input
+            id="contrato"
+            name="contrato"
+            placeholder="C…"
+            autocomplete="off"
+            spellcheck="false"
+            inputmode="latin"
+          />
+          <button type="submit">Ver tanda</button>
+        </div>
+      </form>
+
+      <div id="billetera" class="billetera"></div>
+    </header>
+
+    <div id="mensajes" class="mensajes" role="status" aria-live="polite"></div>
+
+    <main id="app"></main>
+
+    <footer>
+      <p>
+        Solo testnet. El contrato no está auditado: no lo uses con dinero real. Los XLM de testnet
+        no valen nada.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

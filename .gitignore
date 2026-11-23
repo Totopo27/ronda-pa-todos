@@ -10,3 +10,7 @@ test_snapshots
 
 # Notas de trabajo internas
 .odd
+
+# App (Vite)
+app/node_modules
+app/dist

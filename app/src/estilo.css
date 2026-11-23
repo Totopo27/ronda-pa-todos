@@ -1,0 +1,433 @@
+:root {
+  color-scheme: dark;
+  --fondo: #0e1116;
+  --panel: #161b22;
+  --hundido: #12171e;
+  --borde: #262d38;
+  --texto: #e6edf3;
+  --tenue: #8b98a9;
+  --acento: #e8b04b;
+  --ok: #3fb950;
+  --mal: #f85149;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+  max-width: 46rem;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  margin: 0 0 0.4rem;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 0 0 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tenue);
+}
+
+p {
+  margin: 0 0 0.6rem;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+a {
+  color: var(--acento);
+  text-underline-offset: 2px;
+}
+
+.lema {
+  max-width: 38rem;
+  color: var(--tenue);
+}
+
+/* --- Búsqueda por ID --------------------------------------------------- */
+
+.buscador {
+  margin-top: 1.5rem;
+}
+
+.buscador label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tenue);
+}
+
+.fila {
+  display: flex;
+  gap: 0.5rem;
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: #0b0f14;
+  color: var(--texto);
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+/* --- Botones ----------------------------------------------------------- */
+
+button {
+  padding: 0.55rem 0.95rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: #1f2937;
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  background: #273244;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.principal {
+  padding: 0.7rem 1.2rem;
+  border-color: var(--acento);
+  background: var(--acento);
+  color: #12171e;
+  font-weight: 650;
+}
+
+button.principal:hover:not(:disabled) {
+  background: #f5c05a;
+}
+
+/* --- Billetera --------------------------------------------------------- */
+
+.billetera {
+  margin-top: 1rem;
+  font-size: 0.92rem;
+  color: var(--tenue);
+}
+
+.billetera:empty {
+  display: none;
+}
+
+.conectado code {
+  color: var(--texto);
+}
+
+/* --- Mensajes ---------------------------------------------------------- */
+
+.mensajes {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.mensajes:empty {
+  display: none;
+}
+
+.mensajes p {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.error {
+  border: 1px solid rgb(248 81 73 / 35%);
+  background: rgb(248 81 73 / 10%);
+  color: #ffb4ae;
+}
+
+.aviso {
+  border: 1px solid rgb(210 153 34 / 35%);
+  background: rgb(210 153 34 / 10%);
+  color: #f0cf82;
+}
+
+.exito {
+  border: 1px solid rgb(63 185 80 / 35%);
+  background: rgb(63 185 80 / 10%);
+  color: #8ce09a;
+}
+
+/* --- Paneles ----------------------------------------------------------- */
+
+.panel {
+  margin-top: 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.panel-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-cabecera h2 {
+  margin: 0;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.18rem 0.6rem;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill.inscripcion {
+  color: #58a6ff;
+}
+
+.pill.activa {
+  color: var(--ok);
+}
+
+.pill.terminada {
+  color: var(--tenue);
+}
+
+.pill.abortada {
+  color: var(--mal);
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 1rem 1.25rem;
+  margin: 0;
+}
+
+.datos dt {
+  margin-bottom: 0.2rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tenue);
+}
+
+.datos dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cuenta {
+  margin: 1.15rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border-left: 3px solid var(--acento);
+  border-radius: 0 8px 8px 0;
+  background: rgb(232 176 75 / 8%);
+  font-variant-numeric: tabular-nums;
+}
+
+.pie-panel {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tenue);
+}
+
+/* --- Firmas ------------------------------------------------------------ */
+
+.barra {
+  height: 6px;
+  margin-bottom: 0.6rem;
+  border-radius: 999px;
+  background: var(--borde);
+  overflow: hidden;
+}
+
+.barra > span {
+  display: block;
+  height: 100%;
+  background: var(--acento);
+  transition: width 0.3s ease;
+}
+
+/* --- Miembros y orden -------------------------------------------------- */
+
+.miembros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.miembros li {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--hundido);
+  font-size: 0.9rem;
+}
+
+.miembros li.yo {
+  border-color: var(--acento);
+}
+
+.tu {
+  margin-left: 0.3rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--acento);
+}
+
+.orden {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.orden li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--hundido);
+}
+
+.orden li.cobrado {
+  color: var(--tenue);
+}
+
+.orden li.turno {
+  border-color: var(--acento);
+  background: rgb(232 176 75 / 9%);
+}
+
+.orden .num {
+  width: 1.4rem;
+  text-align: right;
+  color: var(--tenue);
+  font-variant-numeric: tabular-nums;
+}
+
+.orden .marca {
+  margin-left: auto;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tenue);
+}
+
+.orden li.turno .marca {
+  color: var(--acento);
+}
+
+/* --- Acción ------------------------------------------------------------ */
+
+.accion .motivo {
+  margin-bottom: 0.9rem;
+}
+
+.accion .aviso {
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+/* --- Cómo desplegar ---------------------------------------------------- */
+
+details {
+  margin-top: 1.15rem;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--acento);
+  font-size: 0.92rem;
+}
+
+details pre {
+  margin: 0.7rem 0 0;
+  padding: 0.8rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: #0b0f14;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+/* --- Pie --------------------------------------------------------------- */
+
+footer {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borde);
+  font-size: 0.82rem;
+  color: var(--tenue);
+}
+
+@media (width <= 34rem) {
+  body {
+    padding: 1.5rem 0.9rem 3rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .fila {
+    flex-direction: column;
+  }
+}

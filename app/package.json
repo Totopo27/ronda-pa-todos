@@ -1,0 +1,24 @@
+{
+  "name": "ronda-pa-todos-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interfaz mínima de RondaPa' Todos: tanda de ahorro circular sobre Stellar testnet.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "node smoke.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "@stellar/freighter-api": "^6.0.1",
+    "@stellar/stellar-sdk": "^17.4.0"
+  }
+}
