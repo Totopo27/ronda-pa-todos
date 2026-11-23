@@ -11,9 +11,10 @@ sirve para cualquier tanda.
 
 - Lee el estado de la tanda con **una** llamada `resumen(miembro)` por refresco (cada 5 s y
   tras cada acción confirmada).
-- Deriva **una sola** acción posible según el estado: firmar la inscripción, aportar la cuota
+- Deriva **una sola** acción posible según el estado: ocupar un lugar, aportar la cuota
   o recuperar el aporte cuando venció el plazo. Si no hay nada que hacer, explica por qué.
-- Muestra quién falta por firmar, el orden de cobro sorteado y la cuenta regresiva del plazo.
+- Muestra cuántos lugares van ocupados, el orden de cobro sorteado y la cuenta regresiva del
+  plazo.
 - Traduce los 13 errores del contrato a una frase en español.
 - Firma con **Freighter**: el cliente nunca pide ni manipula llaves privadas, solo envía el XDR
   a la extensión y recibe el XDR firmado.
@@ -51,23 +52,21 @@ limitaciones del navegador para módulos).
 
 ## Flujo completo para un grupo nuevo
 
-Cada grupo necesita **su propio despliegue**: la lista de miembros se fija en el constructor y
-no se puede cambiar después. Reutilizar un contrato de otro grupo no funciona.
+Cada grupo necesita **su propio despliegue**: la cuota, el plazo y el cupo se fijan en el
+constructor y no se pueden cambiar después. Reutilizar un contrato de otro grupo no funciona.
 
-1. **Cada amigo copia su dirección `G...`** desde Freighter (testnet) y se la pasa al
-   organizador.
-
-2. **El organizador despliega** con el script del repo:
+1. **El organizador decide el cupo** (cuántas personas van a ser) y despliega con el script del
+   repo. No necesita juntar las direcciones de nadie:
 
    ```powershell
    .\scripts\desplegar.ps1 `
-     -Miembros GAAA...,GBBB...,GCCC... `
+     -Cupo 3 `
      -Cuenta rp-deploy `
      -Aporte 10 `
      -DuracionSegundos 604800
    ```
 
-   - `-Miembros`: dos o más direcciones `G...`, sin repetidos.
+   - `-Cupo`: cuántos lugares tiene la tanda. Mínimo dos.
    - `-Cuenta`: identidad de Stellar CLI que paga el despliegue (alias de `stellar keys`), no
      una dirección.
    - `-Aporte`: cuota por ronda en unidades enteras del token (XLM por defecto).
@@ -76,14 +75,19 @@ no se puede cambiar después. Reutilizar un contrato de otro grupo no funciona.
    - `-BaseUrl`: opcional; si pasas dónde está publicada esta interfaz, imprime el enlace
      completo.
 
-   El script compila si hace falta, valida las direcciones, despliega e imprime el ID.
+   El script compila si hace falta, despliega e imprime el ID y el enlace.
 
-3. **Se reparte el enlace** `…/?contrato=EL_ID`.
+2. **Se reparte el enlace** `…/?contrato=EL_ID` a quienes van a participar.
 
-4. **Cada miembro conecta Freighter y firma su inscripción.** La tanda arranca sola cuando
-   firma el último; el orden de cobro lo sortea la red en ese momento y nadie puede elegirlo.
+3. **Cada persona conecta Freighter y firma su inscripción.** El contrato nace vacío y no
+   distingue invitados de desconocidos: **ocupa un lugar quien llega primero con el enlace**.
+   Cuando se llena el cupo, la última firma dispara el sorteo del orden de cobro y nadie puede
+   elegirlo.
 
-5. **Cada ronda, todos aportan la cuota** y el pozo completo va a quien toca según el orden.
+   Por eso el enlace se manda solo al grupo, no se publica: cualquiera que lo tenga puede
+   entrar mientras queden lugares.
+
+4. **Cada ronda, todos aportan la cuota** y el pozo completo va a quien toca según el orden.
 
 Si alguien no aporta antes de que venza el plazo, quien sí aportó puede recuperar su cuota de
 esa ronda. La primera devolución congela la tanda: ya no se cobra más.
@@ -92,7 +96,10 @@ esa ronda. La primera devolución congela la tanda: ya no se cobra más.
 
 - **`NoConfigurado`**: el contrato no tiene token configurado. Vuelve a desplegar con `-Token`.
 - **`NoActiva` / `InscripcionCerrada`**: la tanda aún no arrancó o ya arrancó. Revisa el panel
-  de firmas.
+  de inscripciones. `InscripcionCerrada` también es la respuesta de `unirse` cuando el cupo
+  ya está lleno.
+- **`YaInscrito`**: esa cuenta ya ocupó un lugar en esta tanda.
+- **`CupoInvalido`**: el despliegue se hizo con un cupo menor que dos. Hay que desplegar otro.
 - **`NoHaPagado`**: intentaste recuperar el aporte sin haber aportado esa ronda, o el registro
   de tu pago expiró (vive ~29 días en almacenamiento persistente). Reclamar es una acción de
   días, no de meses.
@@ -118,6 +125,6 @@ app/
 
 ## Contrato de ejemplo
 
-`CALGMJCGQTCL2EPNPC2W2KW5W32REZ2WKLOAZ47G4363XGD7LEJCQ7SW` (testnet, cuota 10 XLM, rondas de
-10 minutos). Es un despliegue de demostración; los miembros son cuentas de prueba del
-organizador, no personas reales.
+`CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4` (testnet, cupo 3, cuota 10 XLM,
+rondas de 10 minutos). Es un despliegue de demostración que quedó en estado `Abortada` tras
+mostrar la salida de emergencia.

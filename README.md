@@ -2,12 +2,12 @@
 
 Una tanda de ahorro circular en Stellar: un grupo de personas aporta la misma cuota cada
 semana, y cada semana una distinta se lleva el pozo completo. El orden de cobro se sortea una
-sola vez, al arrancar, y nadie —ni quien despliega el contrato— puede cambiarlo después.
+sola vez, al llenarse el cupo, y nadie —ni quien despliega el contrato— puede cambiarlo después.
 
 - **Red:** Stellar testnet
-- **Contrato:** [`CDIED32RNOXVVOAKA6RRKHIAUB6BAMPJQC2Z3GQCCYETKXMCPMVKAI7Y`](https://stellar.expert/explorer/testnet/contract/CDIED32RNOXVVOAKA6RRKHIAUB6BAMPJQC2Z3GQCCYETKXMCPMVKAI7Y)
-- **Wasm hash:** `2d6fc13a1699774cce02bd77b638ebc484a25a8b2ff40fc9960ff5122ccf7eb2`
-- **SDK:** Soroban 29.0.1 · **Pruebas:** 19/19 en verde
+- **Contrato:** [`CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4`](https://stellar.expert/explorer/testnet/contract/CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4)
+- **Wasm hash:** `8bd7c0717fb5323233d18edbd7b1b7c37bc3d6d5e17e7aff643c7270e37849be`
+- **SDK:** Soroban 29.0.1 · **Pruebas:** 21/21 en verde
 
 ---
 
@@ -44,37 +44,40 @@ Poner las reglas en un contrato y quitar al custodio del medio.
 El contrato **es** el pozo. La plata entra y sale según reglas escritas antes de que nadie
 ponga un cinco, y ninguna de esas reglas se puede tocar después:
 
-- quiénes son los miembros,
+- cuántos lugares tiene la tanda (el cupo),
 - cuánto aporta cada uno,
 - cuántas rondas hay,
 - **y en qué orden cobra cada quien.**
 
-Ese orden no lo decide nadie. Se sortea una única vez, en cadena, cuando entra el último
-miembro. El contrato no tiene admin: no existe la función que podría cambiar nada de esto.
+Ese orden no lo decide nadie. Se sortea una única vez, en cadena, cuando se ocupa el último
+lugar del cupo. El contrato no tiene admin: no existe la función que podría cambiar nada de
+esto.
 
 ## 3. Cómo funciona
 
-### 3.1 Arranque: las N firmas
+### 3.1 Arranque: el cupo se llena a firmas
 
-El contrato se despliega con la lista de miembros ya fija, pero **no arranca solo**. Cada
-miembro tiene que firmar su propia inscripción con su propia llave:
+El contrato se despliega con un **cupo** —cuántos lugares tiene la tanda— y sin miembros.
+Nace vacío. Cada lugar se ocupa cuando una wallet firma su propia inscripción:
 
 ```rust
 pub fn unirse(env: Env, miembro: Address) -> Result<u32, Error>
 ```
 
 `miembro.require_auth()` exige que la transacción venga firmada por esa dirección. Nadie puede
-inscribir a otro. Y mientras no estén las N firmas, el estado es `Inscripcion` y el contrato
-no acepta un solo stroop.
+inscribir a otro. Mientras el estado sea `Inscripcion`, el contrato no acepta un solo stroop.
 
-Esa es la multifirma del arranque: **N-de-N para empezar**. No es un mecanismo de consenso
-sobre el sorteo —el sorteo no necesita consenso— es el consentimiento explícito de cada
-miembro sobre las condiciones. Si alguien no firma, la tanda no existe. Nadie queda amarrado
-por la firma de otro.
+Esto tiene una consecuencia que conviene decir en voz alta: **el grupo es quien llega primero
+con el enlace**. El contrato no distingue invitados de desconocidos ni tiene forma de expulsar
+a nadie, así que la lista no la escribe una persona: la escriben las firmas. Que entre solo
+gente conocida es un acuerdo social —el enlace se manda al grupo y no se publica—, el mismo
+tipo de confianza que ya sostiene una tanda presencial. Lo que el contrato sí garantiza es el
+consentimiento: nadie queda amarrado por la firma de otro y nadie puede ocupar el lugar de un
+tercero.
 
 ### 3.2 El sorteo
 
-Cuando entra el miembro número N, el contrato hace esto, una sola vez:
+Cuando se ocupa el último lugar, el contrato hace esto, una sola vez:
 
 ```rust
 let mut orden = miembros.clone();
@@ -83,9 +86,10 @@ env.storage().instance().set(&DataKey::Orden, &orden);
 env.storage().instance().set(&DataKey::Estado, &Estado::Activa);
 ```
 
-El orden queda congelado en `Orden`, separado de `Miembros`. Eso importa por dos razones:
-el sorteo es auditable para siempre, y la pregunta "¿ya se sorteó?" se responde mirando si
-`Orden` existe, sin necesidad de un flag extra que pueda desincronizarse.
+El orden queda congelado en `Orden`, separado de `Miembros` (que guarda el orden de llegada).
+Eso importa por dos razones: el sorteo es auditable para siempre, y la pregunta "¿ya se
+sorteó?" se responde mirando si `Orden` existe, sin necesidad de un flag extra que pueda
+desincronizarse.
 
 Desde ese momento la tanda está activa y empieza el reloj.
 
@@ -123,18 +127,18 @@ ronda. Quien ya había cobrado se queda con lo cobrado.
 El contrato **no tiene administrador**. No es un olvido, es el punto.
 
 No existe función para añadir o quitar miembros, ni para cambiar la cuota, ni para reordenar
-el sorteo, ni para pausar, ni para sacar fondos. El ABI exporta 14 funciones y ninguna de
+el sorteo, ni para pausar, ni para sacar fondos. El ABI exporta 15 funciones y ninguna de
 ellas puede alterar una regla después del despliegue:
 
 ```
-__constructor  a_quien_toca  aportar  aporte  duracion  estado
+__constructor  a_quien_toca  aportar  aporte  cupo  duracion  estado
 ha_pagado  inscritos  miembros  orden  reclamar  ronda  terminada  unirse
 ```
 
 Esto tiene un costo, y hay que decirlo: **sin admin, un error en los parámetros es
-irreversible**. Si despliegas con una cuota equivocada, no hay arreglo; hay que desplegar otro
-contrato y volver a empezar. Es el precio de que nadie —tampoco yo— pueda tocar la plata ni
-las reglas.
+irreversible**. Si despliegas con una cuota equivocada o con un cupo que no era, no hay
+arreglo; hay que desplegar otro contrato y volver a empezar. Es el precio de que nadie
+—tampoco yo— pueda tocar la plata ni las reglas.
 
 La alternativa (un admin que pueda corregir) reintroduce exactamente el problema que el
 contrato venía a resolver.
@@ -172,24 +176,23 @@ transacciones y complejidad considerables para un riesgo que, en el caso de uso,
 
 ## 6. Pruebas
 
-22 pruebas de host (`Env::default()`, sin red), una por regla:
+21 pruebas de host (`Env::default()`, sin red), una por regla:
 
 ```sh
 cargo test
 ```
 
 ```
-running 22 tests
-test test::constructor_rechaza_menos_de_dos ... ok
-test test::constructor_rechaza_duplicados ... ok
-test test::constructor_rechaza_aporte_invalido ... ok
-test test::constructor_rechaza_duracion_invalida ... ok
+running 21 tests
+test test::constructor_rechaza_cupo_menor_a_dos - should panic ... ok
+test test::constructor_rechaza_aporte_invalido - should panic ... ok
+test test::constructor_rechaza_duracion_invalida - should panic ... ok
 test test::unirse_sin_firma_falla ... ok
-test test::unirse_rechaza_no_miembro ... ok
+test test::cualquier_wallet_ocupa_un_lugar_libre ... ok
 test test::no_se_puede_unir_dos_veces ... ok
+test test::unirse_rechaza_cupo_lleno ... ok
 test test::el_ultimo_unirse_sortea_y_activa ... ok
-test test::no_se_puede_unir_tras_activar ... ok
-test test::aportar_antes_de_activar_falla ... ok
+test test::aportar_antes_de_llenar_el_cupo_falla ... ok
 test test::aporte_transfiere_al_contrato ... ok
 test test::no_se_puede_pagar_dos_veces_la_misma_ronda ... ok
 test test::ronda_completa_paga_al_miembro_de_turno ... ok
@@ -203,21 +206,20 @@ test test::resumen_durante_la_inscripcion ... ok
 test test::resumen_durante_las_rondas ... ok
 test test::resumen_marca_la_tanda_terminada ... ok
 
-test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
 ```
 
 | Prueba | Qué garantiza |
 | --- | --- |
-| `constructor_rechaza_menos_de_dos` | Una tanda de una persona no es una tanda |
-| `constructor_rechaza_duplicados` | Un miembro repetido rompería el pozo |
+| `constructor_rechaza_cupo_menor_a_dos` | Una tanda de una persona no es una tanda |
 | `constructor_rechaza_aporte_invalido` | No se puede desplegar con cuota cero o negativa |
 | `constructor_rechaza_duracion_invalida` | Sin plazo no hay salida de emergencia |
 | `unirse_sin_firma_falla` | La inscripción exige la firma del miembro, no la de otro |
-| `unirse_rechaza_no_miembro` | Nadie de afuera se cuela en la lista |
-| `no_se_puede_unir_dos_veces` | Una firma, un voto: no se infla el conteo |
+| `cualquier_wallet_ocupa_un_lugar_libre` | El contrato nace vacío y acepta a cualquier cuenta mientras haya cupo |
+| `no_se_puede_unir_dos_veces` | Una firma, un lugar: no se infla el conteo |
+| `unirse_rechaza_cupo_lleno` | Con el cupo lleno, la inscripción está cerrada |
 | `el_ultimo_unirse_sortea_y_activa` | El sorteo produce una permutación real y arranca la tanda |
-| `no_se_puede_unir_tras_activar` | Con la tanda activa, la lista está cerrada |
-| `aportar_antes_de_activar_falla` | Nadie paga antes de que estén las N firmas |
+| `aportar_antes_de_llenar_el_cupo_falla` | Nadie paga antes de que el cupo esté completo |
 | `aporte_transfiere_al_contrato` | La plata se mueve de verdad, no es contabilidad interna |
 | `no_se_puede_pagar_dos_veces_la_misma_ronda` | Pagar dos veces no acelera el cobro |
 | `ronda_completa_paga_al_miembro_de_turno` | El pozo va completo a quien dice el sorteo |
@@ -227,7 +229,7 @@ test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 | `reclamar_devuelve_el_aporte_y_aborta` | La devolución es exacta y congela la tanda |
 | `no_se_reclama_dos_veces` | El reembolso no se puede repetir |
 | `ha_pagado_refleja_la_ronda` | El estado de pago que ve el miembro es el real |
-| `resumen_durante_la_inscripcion` | Antes de arrancar, `resumen` reporta inscritos, orden vacío y quién falta |
+| `resumen_durante_la_inscripcion` | Antes de arrancar, `resumen` reporta el cupo, los inscritos y el orden vacío |
 | `resumen_durante_las_rondas` | Con la tanda en marcha, `resumen` dice la ronda, a quién toca y si pagué |
 | `resumen_marca_la_tanda_terminada` | Al terminar, `resumen` lo refleja y ya no hay turno |
 
@@ -238,18 +240,19 @@ probaría nada sobre la calidad del sorteo.
 
 ## 7. Corrida real en testnet
 
-Contrato desplegado con tres miembros (`rp-ana`, `rp-beto`, `rp-carol`), cuota de **10 XLM**
-y plazo de **120 segundos** (corto, para poder mostrar la salida de emergencia en la misma
-sesión).
+Contrato desplegado con **cupo 3**, cuota de **10 XLM** y plazo de **600 segundos** (corto, para
+poder mostrar la salida de emergencia en la misma sesión). Las tres wallets se inscribieron
+cada una con su propia llave; el organizador nunca tocó una dirección ajena.
 
 ### 7.1 Estado inicial
 
 ```
 estado        = "Inscripcion"
+cupo          = 3
 inscritos     = 0
 ronda         = 0
 aporte        = "100000000"   // 10 XLM en stroops
-duracion      = 120
+duracion      = 600
 orden         = []
 a_quien_toca  = null
 ```
@@ -257,19 +260,20 @@ a_quien_toca  = null
 Nadie ha puesto un stroop y el contrato ya no acepta aportes: `aportar` responde
 `Error::NoActiva` mientras esté en inscripción.
 
-### 7.2 Inscripción (una firma por persona, con su propia llave)
+### 7.2 Inscripción abierta (una firma por persona, con su propia llave)
 
 | Miembro | Devuelve | Transacción |
 | --- | --- | --- |
-| rp-ana | `1` | [`3835b452…`](https://stellar.expert/explorer/testnet/tx/3835b452efea39e5ff010c0c7bd816d6b132cafd7f320e4f5ff3ba96c04816e3) |
-| rp-beto | `2` | [`16e6c6ed…`](https://stellar.expert/explorer/testnet/tx/16e6c6edea3ac79e85c77599b642e6be49177fae8aa7d33cb5b3cf9819ea4d6b) |
-| rp-carol | `3` | [`6cde3761…`](https://stellar.expert/explorer/testnet/tx/6cde37615684b300dd64c82d403d77d722c7356cb94b6337dcd55a2414ede110) |
+| rp-ana | `1` | [`54291728…`](https://stellar.expert/explorer/testnet/tx/542917289281144b03954b3cdc0432ab97d6cf8ddfec95ded626e9dbbaac33b4) |
+| rp-beto | `2` | [`7918d226…`](https://stellar.expert/explorer/testnet/tx/7918d226856079e87e38de0096e49d1966ada8f0d0f2304bd87e4c4f979c8572) |
+| rp-carol | `3` | [`1eb73e94…`](https://stellar.expert/explorer/testnet/tx/1eb73e940c21af300f153d69cdc31e63156f7c080f1d71e616de72d55d8ace94) |
 
-La tercera firma disparó el sorteo. El orden inscrito era **ana, beto, carol**. El orden
-sorteado fue otro:
+La tercera firma llenó el cupo y disparó el sorteo. El orden de llegada era **ana, beto,
+carol**; el orden sorteado fue otro:
 
 ```
 estado        = "Activa"
+miembros      = ["GAYXY…C2W" (ana), "GCI73…XBQ" (beto), "GAINY…FEE" (carol)]
 orden         = ["GAINY…FEE" (carol), "GAYXY…C2W" (ana), "GCI73…XBQ" (beto)]
 a_quien_toca  = "GAINY…FEE" (carol)
 ```
@@ -281,9 +285,9 @@ interviniera.
 
 | Acción | Devuelve | Transacción |
 | --- | --- | --- |
-| `aportar` ana | `0` | [`83a74531…`](https://stellar.expert/explorer/testnet/tx/83a74531522ca6828be59bc81fa3f53d6b2a7972be305942440ee2529d8202d5) |
-| `aportar` beto | `0` | [`1ae607d4…`](https://stellar.expert/explorer/testnet/tx/1ae607d46aba1d6492f905e5ebf2db60427dc578d84738669fb323aeec53fc06) |
-| `aportar` carol | `1` | [`18d2e20b…`](https://stellar.expert/explorer/testnet/tx/18d2e20b4f8792b9df90805db0c42286766ff4878b438517cee0f45b8cc6cfdd) |
+| `aportar` ana | `0` | [`bbd891d3…`](https://stellar.expert/explorer/testnet/tx/bbd891d39648e50218338b2401a58a9e5eb7444709c7013694e9c9f32e7dd3b9) |
+| `aportar` beto | `0` | [`e19b86b7…`](https://stellar.expert/explorer/testnet/tx/e19b86b753ff675c29a299f933b08e3fb3db2617322cea90b101c0aa365f6cfa) |
+| `aportar` carol | `1` | [`56afd6ad…`](https://stellar.expert/explorer/testnet/tx/56afd6adca69139f76dfaf7e3e791844525c7c1a6d6b11fb9b8b346c2a68c575) |
 
 El tercer aporte completó la ronda: el contrato movió **30 XLM** a Carol y avanzó a la
 ronda 1. Verificado en los saldos: Carol terminó con **+20 XLM** (puso 10, cobró 30), antes
@@ -295,12 +299,16 @@ Solo Ana aportó:
 
 | Acción | Resultado | Transacción |
 | --- | --- | --- |
-| `aportar` ana | `1` | [`75879f01…`](https://stellar.expert/explorer/testnet/tx/75879f01f9dd1bf0974764a944956fca924bd94ce13fca5a471937f72b445a71) |
+| `aportar` ana | `1` | [`f090e976…`](https://stellar.expert/explorer/testnet/tx/f090e976e86a98ffe3e8d3f07d94bdfaf2952f8b72f55592ab45cee5d84a2c7b) |
+| `reclamar` beto (no pagó) | ❌ `Error(Contract, #11)` — `NoHaPagado` | — |
 | `reclamar` ana (dentro del plazo) | ❌ `Error(Contract, #10)` — `PlazoVigente` | — |
-| `reclamar` ana (tras 120 s) | `"100000000"` | [`bd3a34cc…`](https://stellar.expert/explorer/testnet/tx/bd3a34ccf5aebc8fb272bce2d8122f2175e197331ae9f33823d6f1abb67dc4b2) |
+| `reclamar` ana (tras 600 s) | `"100000000"` | [`6ff3ac72…`](https://stellar.expert/explorer/testnet/tx/6ff3ac72b60329248ed5e27c23c6196b8d2b6a50dae1104aa33e3713bec8dd5e) |
+| `aportar` carol (tanda abortada) | ❌ `Error(Contract, #9)` — `TandaTerminada` | — |
 | `reclamar` ana (segunda vez) | ❌ `Error(Contract, #12)` — `YaDevuelto` | — |
 
-Ana recuperó sus 10 XLM exactos. El estado quedó:
+Ana recuperó sus 10 XLM exactos: su saldo pasó de `10169.9505794` a `10179.9480925`, y el
+contrato quedó con `"0"` stroops cuando antes de la devolución tenía `"100000000"`. El estado
+quedó:
 
 ```
 estado        = "Abortada"
@@ -334,18 +342,13 @@ stellar contract deploy \
   --network testnet \
   --alias ronda-pa-todos \
   -- --token "$SAC" \
-     --miembros-file-path miembros.json \
      --aporte 100000000 \
-     --duracion 604800
+     --duracion 604800 \
+     --cupo 3
 ```
 
-`miembros.json` es un arreglo de direcciones `G...`:
-
-```json
-["GAAA…", "GBBB…", "GCCC…"]
-```
-
-Cada miembro firma su inscripción con su propia llave:
+No hay lista de miembros: el contrato nace vacío y espera `cupo` firmas. Cada persona ocupa su
+lugar firmando con su propia llave:
 
 ```sh
 stellar contract invoke --id ronda-pa-todos --source-account <miembro> --network testnet \
@@ -370,10 +373,10 @@ npm install
 npm run dev
 ```
 
-Para desplegar una tanda nueva con las direcciones del grupo:
+Para desplegar una tanda nueva con el cupo del grupo:
 
 ```powershell
-.\scripts\desplegar.ps1 -Miembros GAAA...,GBBB...,GCCC... -Cuenta <tu-identidad> -Aporte 10
+.\scripts\desplegar.ps1 -Cupo 3 -Cuenta <tu-identidad> -Aporte 10
 ```
 
 El flujo completo, los comandos y el aviso de testnet están en [`app/README.md`](app/README.md).
@@ -395,13 +398,16 @@ Prefiero que los sepas por mí y no que los descubras tú.
    TTL renovado: si un miembro espera más de ~29 días desde su último aporte para reclamar, su
    registro puede expirar y el reembolso le respondería `NoHaPagado`. Reclamar es una acción
    de días, no de meses.
-4. **Los parámetros son irreversibles.** Una cuota mal puesta no se corrige. Hay que desplegar
-   de nuevo.
-5. **Una firma faltante deja el contrato en inscripción para siempre.** Si un miembro se
-   arrepiente antes de firmar, la tanda nunca arranca y no hay forma de expulsarlo ni de
-   reemplazarlo. No se pierde plata —nadie ha aportado— pero el contrato queda muerto. Es la
-   otra cara de la multifirma: el arranque exige unanimidad real.
-6. **No hay incentivo económico para el que cobra último.** En una tanda real, cobrar al final
+4. **Los parámetros son irreversibles.** Una cuota mal puesta o un cupo equivocado no se
+   corrigen. Hay que desplegar de nuevo.
+5. **Cualquiera con el enlace puede ocupar un lugar.** No hay lista blanca ni código de
+   invitación: el contrato no sabe quién es amigo de quién. Si el enlace se filtra antes de
+   llenar el cupo, un desconocido puede entrar y cobrar su turno como cualquiera. La defensa
+   es social —mandar el enlace solo al grupo y llenar el cupo rápido—, no criptográfica.
+6. **Si el cupo no se llena, la tanda nunca arranca.** No hay plazo de inscripción: el
+   contrato se queda en `Inscripcion` esperando firmas. No se pierde plata, porque nadie puede
+   aportar antes de que el cupo esté completo, pero sí queda un despliegue inútil.
+7. **No hay incentivo económico para el que cobra último.** En una tanda real, cobrar al final
    es prestar gratis. Aquí eso se resuelve con confianza social, igual que siempre. Un
    contrato no arregla la economía de la tanda; arregla la custodia y el orden.
 
@@ -412,9 +418,8 @@ Prefiero que los sepas por mí y no que los descubras tú.
   solo moroso no congele el cobro de todos.
 - **Historial de tanda en eventos**, para que la app cliente muestre quién pagó qué sin
   consultar cada clave de almacenamiento.
-- **Expulsión antes de activar**: si un miembro se arrepiente y nunca firma, hoy el contrato
-  queda muerto (§9.5). Una salida con reembolso de firmas y reemplazo permitiría armar el grupo
-  sin desplegar de nuevo.
+- **Un plazo de inscripción o un código de invitación** (§9.5 y §9.6): hoy el enlace es la
+  única credencial, y un cupo que no se llena deja el contrato esperando para siempre.
 - **Publicar la interfaz**: el build de `app/` es estático y funciona en GitHub Pages, Vercel o
   cualquier hosting; falta decidir dónde.
 
@@ -426,8 +431,8 @@ contracts/ronda_pa_todos/
 ├── Cargo.toml
 ├── Makefile
 └── src/
-    ├── lib.rs                      contrato completo (14 funciones exportadas)
-    └── test.rs                     22 pruebas de host
+    ├── lib.rs                      contrato completo (15 funciones exportadas)
+    └── test.rs                     21 pruebas de host
 app/                                interfaz estática (Vite + TypeScript)
 scripts/desplegar.ps1               despliegue de una tanda nueva en testnet
 ```

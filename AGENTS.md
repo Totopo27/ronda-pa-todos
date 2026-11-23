@@ -34,15 +34,15 @@ stellar contract deploy \
   --source-account <identity> \
   --network testnet \
   --alias ronda-pa-todos \
-  -- --token <SAC> --miembros-file-path miembros.json --aporte 100000000 --duracion 604800
+  -- --token <SAC> --aporte 100000000 --duracion 604800 --cupo 3
 ```
 
 Constructor arguments go after `--`. `--token` is the Stellar Asset Contract id for the asset
 the tanda is denominated in (`stellar contract id asset --asset native --network testnet` for
-native XLM). `--miembros` takes a JSON array of `G...` addresses, either inline or via
-`--miembros-file-path`.
+native XLM). `--cupo` is how many places the tanda has (minimum 2); the contract is deployed
+empty and each wallet takes a place by signing `unirse` itself.
 
-The contract has no admin: once deployed, members, cuota, duracion and the drawn order cannot
+The contract has no admin: once deployed, cuota, duracion, cupo and the drawn order cannot
 change. There is no rescue or sweep function, so a wrong parameter means redeploying.
 
 ## Further reading
