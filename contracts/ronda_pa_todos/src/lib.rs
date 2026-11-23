@@ -12,7 +12,7 @@ const TTL_VIDA: u32 = 500_000;
 #[contracttype]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Estado {
-    /// Se están juntando las N firmas. Nadie ha aportado.
+    /// Se están ocupando los lugares del cupo. Nadie ha aportado.
     Inscripcion,
     /// Orden sorteado. Rondas en curso.
     Activa,
@@ -34,6 +34,8 @@ pub struct Resumen {
     pub orden: Vec<Address>,
     pub aporte: i128,
     pub duracion: u64,
+    /// Cuántos lugares tiene la tanda. Se fija al desplegar.
+    pub cupo: u32,
     pub inscritos: u32,
     pub inicio: u64,
     pub a_quien_toca: Option<Address>,
@@ -49,12 +51,14 @@ pub struct Resumen {
 #[derive(Clone)]
 pub enum DataKey {
     Token,
+    /// Quienes ya ocuparon un lugar, en el orden en que firmaron.
     Miembros,
     Orden,
     Aporte,
     Duracion,
+    /// Cuántos lugares hay en total.
+    Cupo,
     Estado,
-    Inscritos,
     Ronda,
     Inicio,
     Unido(Address),
@@ -68,7 +72,7 @@ pub enum DataKey {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum Error {
-    MiembrosInvalidos = 1,
+    CupoInvalido = 1,
     AporteInvalido = 2,
     DuracionInvalida = 3,
     NoEsMiembro = 4,
@@ -90,23 +94,18 @@ pub struct RondaPaTodos;
 impl RondaPaTodos {
     /// Fija las reglas de la tanda. Después de esto nadie puede cambiarlas:
     /// el contrato no tiene admin.
+    ///
+    /// El contrato nace sin miembros: se despliega con un cupo y cada wallet
+    /// ocupa un lugar firmando `unirse`.
     pub fn __constructor(
         env: Env,
         token: Address,
-        miembros: Vec<Address>,
         aporte: i128,
         duracion: u64,
+        cupo: u32,
     ) -> Result<(), Error> {
-        let n = miembros.len();
-        if n < 2 {
-            return Err(Error::MiembrosInvalidos);
-        }
-        for i in 0..n {
-            for j in (i + 1)..n {
-                if miembros.get(i) == miembros.get(j) {
-                    return Err(Error::MiembrosInvalidos);
-                }
-            }
+        if cupo < 2 {
+            return Err(Error::CupoInvalido);
         }
         if aporte <= 0 {
             return Err(Error::AporteInvalido);
@@ -116,26 +115,24 @@ impl RondaPaTodos {
         }
 
         env.storage().instance().set(&DataKey::Token, &token);
-        env.storage().instance().set(&DataKey::Miembros, &miembros);
+        env.storage().instance().set(&DataKey::Cupo, &cupo);
         env.storage().instance().set(&DataKey::Aporte, &aporte);
         env.storage().instance().set(&DataKey::Duracion, &duracion);
         env.storage().instance().set(&DataKey::Estado, &Estado::Inscripcion);
-        env.storage().instance().set(&DataKey::Inscritos, &0u32);
         env.storage().instance().set(&DataKey::Ronda, &0u32);
         env.storage().instance().extend_ttl(TTL_UMBRAL, TTL_VIDA);
         Ok(())
     }
 
-    /// Cada miembro firma su propia inscripción. La N-ésima firma sortea el
-    /// orden de cobro y arranca la tanda.
+    /// Cualquier wallet firma su propia inscripción y ocupa un lugar. Cuando se
+    /// llena el cupo, la última firma sortea el orden de cobro y arranca la
+    /// tanda. El contrato no distingue invitados de desconocidos: quien llega
+    /// primero con el enlace, entra.
     pub fn unirse(env: Env, miembro: Address) -> Result<u32, Error> {
         miembro.require_auth();
 
         if leer_estado(&env) != Estado::Inscripcion {
             return Err(Error::InscripcionCerrada);
-        }
-        if !pertenece(&env, &miembro) {
-            return Err(Error::NoEsMiembro);
         }
         let clave = DataKey::Unido(miembro.clone());
         if env.storage().persistent().get(&clave).unwrap_or(false) {
@@ -145,12 +142,12 @@ impl RondaPaTodos {
         env.storage().persistent().set(&clave, &true);
         env.storage().persistent().extend_ttl(&clave, TTL_UMBRAL, TTL_VIDA);
 
-        let inscritos = leer_u32(&env, &DataKey::Inscritos) + 1;
-        env.storage().instance().set(&DataKey::Inscritos, &inscritos);
-        env.storage().instance().extend_ttl(TTL_UMBRAL, TTL_VIDA);
+        let mut miembros = leer_miembros(&env);
+        miembros.push_back(miembro);
+        env.storage().instance().set(&DataKey::Miembros, &miembros);
 
-        let miembros = leer_miembros(&env);
-        if inscritos == miembros.len() {
+        let inscritos = miembros.len();
+        if inscritos == leer_u32(&env, &DataKey::Cupo) {
             let mut orden = miembros.clone();
             env.prng().shuffle(&mut orden);
             env.storage().instance().set(&DataKey::Orden, &orden);
@@ -160,6 +157,7 @@ impl RondaPaTodos {
                 .instance()
                 .set(&DataKey::Inicio, &env.ledger().timestamp());
         }
+        env.storage().instance().extend_ttl(TTL_UMBRAL, TTL_VIDA);
 
         Ok(inscritos)
     }
@@ -289,6 +287,8 @@ impl RondaPaTodos {
     pub fn resumen(env: Env, miembro: Option<Address>) -> Resumen {
         let estado = leer_estado(&env);
         let ronda = leer_u32(&env, &DataKey::Ronda);
+        let miembros = leer_miembros(&env);
+        let inscritos = miembros.len();
         let orden: Vec<Address> = env
             .storage()
             .instance()
@@ -316,11 +316,12 @@ impl RondaPaTodos {
             token: env.storage().instance().get(&DataKey::Token),
             estado,
             ronda,
-            miembros: leer_miembros(&env),
+            miembros,
             orden,
             aporte: leer_aporte(&env),
             duracion: leer_u64(&env, &DataKey::Duracion),
-            inscritos: leer_u32(&env, &DataKey::Inscritos),
+            cupo: leer_u32(&env, &DataKey::Cupo),
+            inscritos,
             inicio: leer_u64(&env, &DataKey::Inicio),
             a_quien_toca,
             unido,
@@ -356,8 +357,14 @@ impl RondaPaTodos {
         leer_u64(&env, &DataKey::Duracion)
     }
 
+    /// Cuántos lugares tiene la tanda en total.
+    pub fn cupo(env: Env) -> u32 {
+        leer_u32(&env, &DataKey::Cupo)
+    }
+
+    /// Cuántos lugares están ocupados.
     pub fn inscritos(env: Env) -> u32 {
-        leer_u32(&env, &DataKey::Inscritos)
+        leer_miembros(&env).len()
     }
 
     /// Quién cobra la ronda actual. `None` si la tanda no está activa.

@@ -14,38 +14,39 @@ struct Tanda {
     env: Env,
     id: Address,
     token: Address,
-    miembros: Vec<Address>,
+    /// Direcciones que el test usará para inscribirse. Viven en el test, no en
+    /// el contrato: el contrato nace vacío y solo conoce a quien firma.
+    candidatos: Vec<Address>,
+    cupo: u32,
 }
 
-/// Monta una tanda de `n` miembros sin simular ninguna firma.
-fn tanda_sin_firmas(n: u32) -> Tanda {
+/// Monta una tanda de `cupo` lugares sin simular ninguna firma.
+fn tanda_sin_firmas(cupo: u32) -> Tanda {
     let env = Env::default();
     let admin = Address::generate(&env);
     let token = env.register_stellar_asset_contract_v2(admin).address();
 
-    let mut miembros = Vec::new(&env);
-    for _ in 0..n {
-        miembros.push_back(Address::generate(&env));
+    let mut candidatos = Vec::new(&env);
+    for _ in 0..cupo {
+        candidatos.push_back(Address::generate(&env));
     }
 
-    let id = env.register(
-        RondaPaTodos,
-        (token.clone(), miembros.clone(), APORTE, DURACION),
-    );
+    let id = env.register(RondaPaTodos, (token.clone(), APORTE, DURACION, cupo));
     Tanda {
         env,
         id,
         token,
-        miembros,
+        candidatos,
+        cupo,
     }
 }
 
-/// Monta una tanda con todas las firmas simuladas y los miembros fondeados.
-fn tanda(n: u32) -> Tanda {
-    let t = tanda_sin_firmas(n);
+/// Monta una tanda con todas las firmas simuladas y los candidatos fondeados.
+fn tanda(cupo: u32) -> Tanda {
+    let t = tanda_sin_firmas(cupo);
     t.env.mock_all_auths();
     let emisor = StellarAssetClient::new(&t.env, &t.token);
-    for m in t.miembros.iter() {
+    for m in t.candidatos.iter() {
         emisor.mint(&m, &(APORTE * 10));
     }
     t
@@ -57,16 +58,17 @@ impl Tanda {
     }
 
     fn miembro(&self, i: u32) -> Address {
-        self.miembros.get(i).unwrap()
+        self.candidatos.get(i).unwrap()
     }
 
     fn saldo(&self, quien: &Address) -> i128 {
         TokenClient::new(&self.env, &self.token).balance(quien)
     }
 
+    /// Llena el cupo firmando en el orden de `candidatos`.
     fn inscribir_todos(&self) {
         let cliente = self.cliente();
-        for i in 0..self.miembros.len() {
+        for i in 0..self.cupo {
             cliente.unirse(&self.miembro(i));
         }
     }
@@ -76,28 +78,12 @@ impl Tanda {
 
 #[test]
 #[should_panic(expected = "Error(Contract, #1)")]
-fn constructor_rechaza_menos_de_dos() {
+fn constructor_rechaza_cupo_menor_a_dos() {
     let env = Env::default();
     let token = env
         .register_stellar_asset_contract_v2(Address::generate(&env))
         .address();
-    let mut miembros = Vec::new(&env);
-    miembros.push_back(Address::generate(&env));
-    env.register(RondaPaTodos, (token, miembros, APORTE, DURACION));
-}
-
-#[test]
-#[should_panic(expected = "Error(Contract, #1)")]
-fn constructor_rechaza_duplicados() {
-    let env = Env::default();
-    let token = env
-        .register_stellar_asset_contract_v2(Address::generate(&env))
-        .address();
-    let uno = Address::generate(&env);
-    let mut miembros = Vec::new(&env);
-    miembros.push_back(uno.clone());
-    miembros.push_back(uno);
-    env.register(RondaPaTodos, (token, miembros, APORTE, DURACION));
+    env.register(RondaPaTodos, (token, APORTE, DURACION, 1u32));
 }
 
 #[test]
@@ -107,10 +93,7 @@ fn constructor_rechaza_aporte_invalido() {
     let token = env
         .register_stellar_asset_contract_v2(Address::generate(&env))
         .address();
-    let mut miembros = Vec::new(&env);
-    miembros.push_back(Address::generate(&env));
-    miembros.push_back(Address::generate(&env));
-    env.register(RondaPaTodos, (token, miembros, 0i128, DURACION));
+    env.register(RondaPaTodos, (token, 0i128, DURACION, 2u32));
 }
 
 #[test]
@@ -120,10 +103,7 @@ fn constructor_rechaza_duracion_invalida() {
     let token = env
         .register_stellar_asset_contract_v2(Address::generate(&env))
         .address();
-    let mut miembros = Vec::new(&env);
-    miembros.push_back(Address::generate(&env));
-    miembros.push_back(Address::generate(&env));
-    env.register(RondaPaTodos, (token, miembros, APORTE, 0u64));
+    env.register(RondaPaTodos, (token, APORTE, 0u64, 2u32));
 }
 
 // --- Inscripción -------------------------------------------------------
@@ -136,10 +116,15 @@ fn unirse_sin_firma_falla() {
 }
 
 #[test]
-fn unirse_rechaza_no_miembro() {
+fn cualquier_wallet_ocupa_un_lugar_libre() {
     let t = tanda(3);
+    let cliente = t.cliente();
     let ajeno = Address::generate(&t.env);
-    assert_eq!(t.cliente().try_unirse(&ajeno), Err(Ok(Error::NoEsMiembro)));
+
+    assert_eq!(cliente.unirse(&ajeno), 1);
+    assert_eq!(cliente.estado(), Estado::Inscripcion);
+    assert_eq!(cliente.inscritos(), 1);
+    assert_eq!(cliente.miembros().get(0).unwrap(), ajeno);
 }
 
 #[test]
@@ -154,10 +139,31 @@ fn no_se_puede_unir_dos_veces() {
 }
 
 #[test]
+fn unirse_rechaza_cupo_lleno() {
+    let t = tanda(2);
+    let cliente = t.cliente();
+    t.inscribir_todos();
+
+    let tarde = Address::generate(&t.env);
+    assert_eq!(
+        cliente.try_unirse(&tarde),
+        Err(Ok(Error::InscripcionCerrada))
+    );
+    assert_eq!(cliente.inscritos(), 2);
+}
+
+#[test]
 fn el_ultimo_unirse_sortea_y_activa() {
     let t = tanda(3);
     let cliente = t.cliente();
     t.inscribir_todos();
+
+    // `miembros` guarda el orden de llegada; `orden`, la permutación sorteada.
+    let inscritos = cliente.miembros();
+    assert_eq!(inscritos.len(), 3);
+    for i in 0..3 {
+        assert_eq!(inscritos.get(i).unwrap(), t.miembro(i));
+    }
 
     assert_eq!(cliente.estado(), Estado::Activa);
     assert_eq!(cliente.inscritos(), 3);
@@ -168,27 +174,16 @@ fn el_ultimo_unirse_sortea_y_activa() {
     // una secuencia concreta sería un test frágil.
     let orden = cliente.orden();
     assert_eq!(orden.len(), 3);
-    for m in t.miembros.iter() {
+    for m in t.candidatos.iter() {
         assert!(orden.contains(&m));
     }
     assert_eq!(cliente.a_quien_toca(), Some(orden.get(0).unwrap()));
 }
 
-#[test]
-fn no_se_puede_unir_tras_activar() {
-    let t = tanda(3);
-    let cliente = t.cliente();
-    t.inscribir_todos();
-    assert_eq!(
-        cliente.try_unirse(&t.miembro(0)),
-        Err(Ok(Error::InscripcionCerrada))
-    );
-}
-
 // --- Aportes -----------------------------------------------------------
 
 #[test]
-fn aportar_antes_de_activar_falla() {
+fn aportar_antes_de_llenar_el_cupo_falla() {
     let t = tanda(3);
     let cliente = t.cliente();
     cliente.unirse(&t.miembro(0));
@@ -231,7 +226,7 @@ fn ronda_completa_paga_al_miembro_de_turno() {
     let receptor = cliente.orden().get(0).unwrap();
     let antes = t.saldo(&receptor);
 
-    for i in 0..3 {
+    for i in 0..t.cupo {
         cliente.aportar(&t.miembro(i));
     }
 
@@ -248,14 +243,14 @@ fn tanda_completa_paga_a_todos_una_vez() {
 
     let inicial: Vec<i128> = {
         let mut v = Vec::new(&t.env);
-        for i in 0..3 {
+        for i in 0..t.cupo {
             v.push_back(t.saldo(&t.miembro(i)));
         }
         v
     };
 
-    for _ in 0..3 {
-        for i in 0..3 {
+    for _ in 0..t.cupo {
+        for i in 0..t.cupo {
             cliente.aportar(&t.miembro(i));
         }
     }
@@ -264,7 +259,7 @@ fn tanda_completa_paga_a_todos_una_vez() {
     assert_eq!(cliente.ronda(), 3);
     assert_eq!(t.saldo(&t.id), 0);
     // Cada miembro aportó 3 cuotas y cobró un pozo de 3 cuotas: queda igual.
-    for i in 0..3 {
+    for i in 0..t.cupo {
         assert_eq!(t.saldo(&t.miembro(i)), inicial.get(i).unwrap());
     }
     assert!(cliente.terminada());
@@ -275,8 +270,8 @@ fn aportar_despues_de_terminar_falla() {
     let t = tanda(3);
     let cliente = t.cliente();
     t.inscribir_todos();
-    for _ in 0..3 {
-        for i in 0..3 {
+    for _ in 0..t.cupo {
+        for i in 0..t.cupo {
             cliente.aportar(&t.miembro(i));
         }
     }
@@ -360,7 +355,9 @@ fn resumen_durante_la_inscripcion() {
 
     let sin_miembro = cliente.resumen(&None);
     assert_eq!(sin_miembro.estado, Estado::Inscripcion);
+    assert_eq!(sin_miembro.cupo, 3);
     assert_eq!(sin_miembro.inscritos, 1);
+    assert_eq!(sin_miembro.miembros.len(), 1);
     assert_eq!(sin_miembro.ronda, 0);
     assert_eq!(sin_miembro.inicio, 0);
     assert_eq!(sin_miembro.orden.len(), 0);
@@ -386,6 +383,7 @@ fn resumen_durante_las_rondas() {
 
     let activa = cliente.resumen(&Some(t.miembro(0)));
     assert_eq!(activa.estado, Estado::Activa);
+    assert_eq!(activa.cupo, 3);
     assert_eq!(activa.orden, orden);
     assert_eq!(activa.a_quien_toca, Some(orden.get(0).unwrap()));
     assert!(activa.inscritos == 3);
