@@ -241,8 +241,16 @@ probaría nada sobre la calidad del sorteo.
 ## 7. Corrida real en testnet
 
 Contrato desplegado con **cupo 3**, cuota de **10 XLM** y plazo de **600 segundos** (corto, para
-poder mostrar la salida de emergencia en la misma sesión). Las tres wallets se inscribieron
-cada una con su propia llave; el organizador nunca tocó una dirección ajena.
+llegar a la salida de emergencia en la misma sesión).
+
+Las tres cuentas de esta corrida son keypairs creados con `stellar keys generate` en la máquina
+del autor. El friendbot de testnet (`GAIH3ULL…JZNSR`) las creó y financió con 10 000 XLM cada
+una entre las 23:15:26 y las 23:15:46 UTC del 22 de noviembre de 2026, y las cuatro llaves
+privadas, incluida la del despliegue, viven en el keystore local. Cada transacción lleva la
+firma de la cuenta que la origina y cualquiera puede abrirla en Stellar Expert. Eso prueba que
+el contrato acepta cuentas distintas, exige la firma de cada una y paga según el sorteo; no
+prueba que tres personas independientes hayan aceptado participar. Esa parte queda sin probar
+hasta que el enlace llegue a manos de terceros.
 
 ### 7.1 Estado inicial
 
@@ -260,7 +268,7 @@ a_quien_toca  = null
 Nadie ha puesto un stroop y el contrato ya no acepta aportes: `aportar` responde
 `Error::NoActiva` mientras esté en inscripción.
 
-### 7.2 Inscripción abierta (una firma por persona, con su propia llave)
+### 7.2 Inscripción abierta (una firma por cuenta)
 
 | Miembro | Devuelve | Transacción |
 | --- | --- | --- |
@@ -278,8 +286,9 @@ orden         = ["GAINY…FEE" (carol), "GAYXY…C2W" (ana), "GCI73…XBQ" (beto
 a_quien_toca  = "GAINY…FEE" (carol)
 ```
 
-Carol cobra primero, después Ana, después Beto. La tanda pasó a `Activa` sin que nadie
-interviniera.
+Carol cobra primero, después Ana, después Beto. El paso a `Activa` y el sorteo ocurrieron
+dentro de esa tercera transacción: no hay una función para arrancar la tanda, se arranca sola
+cuando el cupo se llena.
 
 ### 7.3 Ronda 0 — completa
 
@@ -289,9 +298,10 @@ interviniera.
 | `aportar` beto | `0` | [`e19b86b7…`](https://stellar.expert/explorer/testnet/tx/e19b86b753ff675c29a299f933b08e3fb3db2617322cea90b101c0aa365f6cfa) |
 | `aportar` carol | `1` | [`56afd6ad…`](https://stellar.expert/explorer/testnet/tx/56afd6adca69139f76dfaf7e3e791844525c7c1a6d6b11fb9b8b346c2a68c575) |
 
-El tercer aporte completó la ronda: el contrato movió **30 XLM** a Carol y avanzó a la
-ronda 1. Verificado en los saldos: Carol terminó con **+20 XLM** (puso 10, cobró 30), antes
-de comisiones de red.
+El tercer aporte completó la ronda: el contrato movió **30 XLM** a Carol y avanzó a la ronda 1.
+Los efectos de esa transacción lo dejan por escrito: se debitó la cuota de Carol, se acreditó
+al contrato y el contrato pagó 30 XLM a su cuenta. El neto de la ronda es **+20 XLM** antes de
+comisiones.
 
 ### 7.4 Ronda 1 — deserción y devolución
 
