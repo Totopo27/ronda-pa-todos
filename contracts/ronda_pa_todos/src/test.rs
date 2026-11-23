@@ -315,6 +315,11 @@ fn reclamar_devuelve_el_aporte_y_aborta() {
     assert_eq!(t.saldo(&t.id), 0);
     assert_eq!(cliente.estado(), Estado::Abortada);
     assert!(cliente.terminada());
+
+    let visto = cliente.resumen(&Some(t.miembro(0)));
+    assert!(visto.ya_devuelto);
+    assert!(visto.ha_pagado);
+    assert!(!cliente.resumen(&Some(t.miembro(1))).ya_devuelto);
 }
 
 #[test]
@@ -345,4 +350,73 @@ fn ha_pagado_refleja_la_ronda() {
     cliente.aportar(&t.miembro(0));
     assert!(cliente.ha_pagado(&t.miembro(0)));
     assert!(!cliente.ha_pagado(&t.miembro(1)));
+}
+
+#[test]
+fn resumen_durante_la_inscripcion() {
+    let t = tanda(3);
+    let cliente = t.cliente();
+    cliente.unirse(&t.miembro(0));
+
+    let sin_miembro = cliente.resumen(&None);
+    assert_eq!(sin_miembro.estado, Estado::Inscripcion);
+    assert_eq!(sin_miembro.inscritos, 1);
+    assert_eq!(sin_miembro.ronda, 0);
+    assert_eq!(sin_miembro.inicio, 0);
+    assert_eq!(sin_miembro.orden.len(), 0);
+    assert_eq!(sin_miembro.a_quien_toca, None);
+    assert!(!sin_miembro.unido);
+    assert!(!sin_miembro.ha_pagado);
+    assert!(!sin_miembro.ya_devuelto);
+    assert_eq!(sin_miembro.token, Some(t.token.clone()));
+    assert_eq!(sin_miembro.aporte, APORTE);
+    assert_eq!(sin_miembro.duracion, DURACION);
+
+    let firmo = cliente.resumen(&Some(t.miembro(0)));
+    assert!(firmo.unido);
+    assert!(!cliente.resumen(&Some(t.miembro(1))).unido);
+}
+
+#[test]
+fn resumen_durante_las_rondas() {
+    let t = tanda(3);
+    let cliente = t.cliente();
+    t.inscribir_todos();
+    let orden = cliente.orden();
+
+    let activa = cliente.resumen(&Some(t.miembro(0)));
+    assert_eq!(activa.estado, Estado::Activa);
+    assert_eq!(activa.orden, orden);
+    assert_eq!(activa.a_quien_toca, Some(orden.get(0).unwrap()));
+    assert!(activa.inscritos == 3);
+    assert!(activa.unido);
+
+    cliente.aportar(&t.miembro(0));
+    let tras_uno = cliente.resumen(&Some(t.miembro(0)));
+    assert_eq!(tras_uno.ronda, 0);
+    assert!(tras_uno.ha_pagado);
+    assert!(!cliente.resumen(&Some(t.miembro(1))).ha_pagado);
+
+    cliente.aportar(&t.miembro(1));
+    cliente.aportar(&t.miembro(2));
+    let siguiente = cliente.resumen(&None);
+    assert_eq!(siguiente.ronda, 1);
+    assert_eq!(siguiente.a_quien_toca, Some(orden.get(1).unwrap()));
+    assert!(!siguiente.ha_pagado);
+}
+
+#[test]
+fn resumen_marca_la_tanda_terminada() {
+    let t = tanda(2);
+    let cliente = t.cliente();
+    t.inscribir_todos();
+    for _ in 0..2 {
+        cliente.aportar(&t.miembro(0));
+        cliente.aportar(&t.miembro(1));
+    }
+
+    let fin = cliente.resumen(&Some(t.miembro(0)));
+    assert_eq!(fin.estado, Estado::Terminada);
+    assert_eq!(fin.ronda, 2);
+    assert_eq!(fin.a_quien_toca, None);
 }

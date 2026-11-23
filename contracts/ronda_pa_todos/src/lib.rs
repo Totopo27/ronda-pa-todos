@@ -22,6 +22,29 @@ pub enum Estado {
     Abortada,
 }
 
+/// Todo el estado que necesita una interfaz, en una sola lectura y en un solo
+/// instante. Doce llamadas sueltas darían doce fotos distintas.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Resumen {
+    pub token: Option<Address>,
+    pub estado: Estado,
+    pub ronda: u32,
+    pub miembros: Vec<Address>,
+    pub orden: Vec<Address>,
+    pub aporte: i128,
+    pub duracion: u64,
+    pub inscritos: u32,
+    pub inicio: u64,
+    pub a_quien_toca: Option<Address>,
+    /// Si el `miembro` consultado ya firmó su inscripción.
+    pub unido: bool,
+    /// Si el `miembro` consultado ya aportó la ronda en curso.
+    pub ha_pagado: bool,
+    /// Si el `miembro` consultado ya recuperó su aporte de la ronda en curso.
+    pub ya_devuelto: bool,
+}
+
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
@@ -261,6 +284,51 @@ impl RondaPaTodos {
 
     // --- Lecturas -------------------------------------------------------
 
+    /// Estado completo de la tanda. `miembro` es opcional: sin él, `unido` y
+    /// `ha_pagado` vuelven en `false`.
+    pub fn resumen(env: Env, miembro: Option<Address>) -> Resumen {
+        let estado = leer_estado(&env);
+        let ronda = leer_u32(&env, &DataKey::Ronda);
+        let orden: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::Orden)
+            .unwrap_or(Vec::new(&env));
+        let a_quien_toca = if estado == Estado::Activa {
+            orden.get(ronda)
+        } else {
+            None
+        };
+
+        let (unido, ha_pagado, ya_devuelto) = match miembro {
+            Some(ref m) => (
+                env.storage()
+                    .persistent()
+                    .get(&DataKey::Unido(m.clone()))
+                    .unwrap_or(false),
+                pago_de(&env, m) == ronda + 1,
+                devuelto_de(&env, m) == ronda + 1,
+            ),
+            None => (false, false, false),
+        };
+
+        Resumen {
+            token: env.storage().instance().get(&DataKey::Token),
+            estado,
+            ronda,
+            miembros: leer_miembros(&env),
+            orden,
+            aporte: leer_aporte(&env),
+            duracion: leer_u64(&env, &DataKey::Duracion),
+            inscritos: leer_u32(&env, &DataKey::Inscritos),
+            inicio: leer_u64(&env, &DataKey::Inicio),
+            a_quien_toca,
+            unido,
+            ha_pagado,
+            ya_devuelto,
+        }
+    }
+
     pub fn estado(env: Env) -> Estado {
         leer_estado(&env)
     }
@@ -354,6 +422,13 @@ fn pago_de(env: &Env, miembro: &Address) -> u32 {
     env.storage()
         .persistent()
         .get(&DataKey::Pagado(miembro.clone()))
+        .unwrap_or(0u32)
+}
+
+fn devuelto_de(env: &Env, miembro: &Address) -> u32 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Devuelto(miembro.clone()))
         .unwrap_or(0u32)
 }
 
