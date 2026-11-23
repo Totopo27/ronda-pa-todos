@@ -193,6 +193,10 @@ export function formatearDuracion(segundos: number): string {
   return `${Math.floor(s / 86400)} d ${Math.floor((s % 86400) / 3600)} h`;
 }
 
+export function enlaceFriendbot(direccion: string): string {
+  return `https://friendbot.stellar.org/?addr=${encodeURIComponent(direccion)}`;
+}
+
 const ERRORES: Record<number, string> = {
   1: "El cupo de la tanda tiene que ser al menos 2 (una tanda de una persona no es una tanda).",
   2: "La cuota tiene que ser mayor que cero.",
@@ -227,7 +231,7 @@ export function describirError(mensaje: string): string {
   const codigo = codigoDeError(mensaje);
   if (codigo !== null) return traducirError(codigo);
   if (/declin|denied|reject|cancel/i.test(mensaje)) {
-    return "Cancelaste la firma en Freighter. No se movió nada.";
+    return "Cancelaste la firma en tu wallet. No se movió nada.";
   }
   if (/insufficient|underfunded|balance is not sufficient|tx_insufficient/i.test(mensaje)) {
     return "La cuenta no tiene XLM suficiente para la cuota y las comisiones. Pide fondos en testnet.";

@@ -3,6 +3,7 @@ import {
   acortarDireccion,
   codigoDeError,
   describirError,
+  enlaceFriendbot,
   formatearDuracion,
   formatearImporte,
   normalizarResumen,
@@ -223,6 +224,10 @@ describe("errores", () => {
     expect(describirError('HostError: Error(Contract, #8)')).toMatch(/ya aportó/i);
     expect(describirError("algo rarísimo")).toBe("algo rarísimo");
   });
+
+  it("envía a Friendbot cuando faltan fondos de testnet", () => {
+    expect(describirError("insufficient balance")).toMatch(/Pide fondos en testnet/i);
+  });
 });
 
 describe("acortarDireccion", () => {
@@ -232,5 +237,17 @@ describe("acortarDireccion", () => {
 
   it("no toca lo que ya es corto", () => {
     expect(acortarDireccion("GABC")).toBe("GABC");
+  });
+});
+
+describe("enlaceFriendbot", () => {
+  it("abre Friendbot con la cuenta conectada", () => {
+    expect(enlaceFriendbot(ANA)).toBe(`https://friendbot.stellar.org/?addr=${ANA}`);
+  });
+
+  it("no permite romper el atributo href de Friendbot", () => {
+    const u = enlaceFriendbot(`G\"><script>alert(1)</script>`);
+    expect(u).toMatch(/^https:\/\/friendbot\.stellar\.org\/\?addr=/);
+    expect(u.slice("https://friendbot.stellar.org/?addr=".length)).not.toMatch(/[<>"\s]/);
   });
 });

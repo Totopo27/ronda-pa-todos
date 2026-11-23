@@ -36,7 +36,7 @@
     URL donde está publicada la interfaz. Si se pasa, se imprime el enlace completo.
 
 .EXAMPLE
-    .\scripts\desplegar.ps1 -Cupo 3 -Cuenta rp-deploy -Aporte 10 -DuracionSegundos 600
+    .\scripts\desplegar.ps1 -Cupo 3 -Cuenta rp-deploy -Aporte 10 -DuracionSegundos 604800
 #>
 [CmdletBinding()]
 param(

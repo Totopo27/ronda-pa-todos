@@ -1,14 +1,10 @@
-import {
-  getAddress,
-  getNetworkDetails,
-  isConnected,
-  requestAccess,
-  signTransaction,
-} from "@stellar/freighter-api";
+import { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit/sdk";
+import { VarialModule } from "@creit.tech/stellar-wallets-kit/modules/varial";
+import { Networks } from "@creit.tech/stellar-wallets-kit/types";
 
 export const PASSHRASE_TESTNET = "Test SDF Network ; September 2015";
 
-export type MotivoBilletera = "sin_extension" | "denegado" | "red" | "firma";
+export type MotivoBilletera = "denegado" | "red" | "firma";
 
 export class ErrorBilletera extends Error {
   constructor(
@@ -20,48 +16,92 @@ export class ErrorBilletera extends Error {
   }
 }
 
-/** Freighter responde con un campo `error` en vez de lanzar; lo normalizamos. */
-function fallo(r: { error?: { message?: string } }, motivo: MotivoBilletera, porDefecto: string) {
-  return new ErrorBilletera(motivo, r.error?.message || porDefecto);
-}
-
-export async function disponible(): Promise<boolean> {
-  try {
-    const { isConnected: hay } = await isConnected();
-    return hay;
-  } catch {
-    return false;
+function mensaje(fallo: unknown): string {
+  if (fallo instanceof Error) return fallo.message;
+  if (fallo && typeof fallo === "object" && "message" in fallo) {
+    return String(fallo.message);
   }
+  return String(fallo);
 }
 
-/** Pide permiso y devuelve la dirección. Es el botón "Conectar". */
+function walletSinConsultaDeRed(fallo: unknown): boolean {
+  return (
+    fallo !== null &&
+    typeof fallo === "object" &&
+    "code" in fallo &&
+    fallo.code === -3 &&
+    "message" in fallo &&
+    /does not support.*getNetwork/i.test(String(fallo.message))
+  );
+}
+
+const projectIdWalletConnect = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID?.trim();
+
+StellarWalletsKit.init({ modules: [new VarialModule()], network: Networks.TESTNET });
+
+async function activarWalletConnect(): Promise<void> {
+  const projectId = projectIdWalletConnect;
+  if (!projectId) return;
+
+  const { WalletConnectModule, WalletConnectTargetChain } = await import(
+    "@creit.tech/stellar-wallets-kit/modules/wallet-connect"
+  );
+  StellarWalletsKit.init({
+    network: Networks.TESTNET,
+    modules: [
+      new VarialModule(),
+      new WalletConnectModule({
+        projectId,
+        allowedChains: [WalletConnectTargetChain.TESTNET],
+        metadata: {
+          name: "RondaPa' Todos",
+          description: "Tanda de ahorro circular sobre Stellar testnet",
+          url: location.origin,
+          icons: [new URL(`${import.meta.env.BASE_URL}favicon.svg`, location.href).href],
+        },
+      }),
+    ],
+  });
+}
+
+const billeteraLista = activarWalletConnect();
+
+/** Abre el selector de wallets y devuelve la dirección autorizada. */
 export async function conectar(): Promise<string> {
-  if (!(await disponible())) {
-    throw new ErrorBilletera(
-      "sin_extension",
-      "No encontramos la extensión Freighter en este navegador. Instálala desde freighter.app y recarga la página.",
-    );
+  try {
+    await billeteraLista;
+    const { address } = await StellarWalletsKit.authModal();
+    return address;
+  } catch (fallo) {
+    throw new ErrorBilletera("denegado", mensaje(fallo) || "La wallet no autorizó el acceso.");
   }
-  const r = await requestAccess();
-  if (r.error) throw fallo(r, "denegado", "Freighter no autorizó el acceso.");
-  return r.address;
 }
 
 /** Dirección ya autorizada en una visita anterior, sin abrir ventana. */
 export async function cuentaAutorizada(): Promise<string | null> {
   try {
-    const r = await getAddress();
-    return r.error ? null : r.address || null;
+    await billeteraLista;
+    const { address } = await StellarWalletsKit.getAddress();
+    return address || null;
   } catch {
     return null;
   }
 }
 
-/** Red configurada en la extensión. */
+/** Red configurada en la wallet elegida. */
 export async function redActual(): Promise<{ red: string; passphrase: string }> {
-  const r = await getNetworkDetails();
-  if (r.error) throw fallo(r, "red", "No pudimos leer la red de Freighter.");
-  return { red: r.network, passphrase: r.networkPassphrase };
+  try {
+    await billeteraLista;
+    const { network, networkPassphrase } = await StellarWalletsKit.getNetwork();
+    return { red: network, passphrase: networkPassphrase };
+  } catch (fallo) {
+    // WalletConnect firma contra la red fijada al inicializar el kit, pero su
+    // módulo no implementa getNetwork(). Ese límite no debe bloquear la firma.
+    if (walletSinConsultaDeRed(fallo)) {
+      return { red: "TESTNET", passphrase: PASSHRASE_TESTNET };
+    }
+    throw new ErrorBilletera("red", mensaje(fallo) || "No pudimos leer la red de la wallet.");
+  }
 }
 
 export async function exigirTestnet(): Promise<void> {
@@ -69,17 +109,21 @@ export async function exigirTestnet(): Promise<void> {
   if (passphrase !== PASSHRASE_TESTNET) {
     throw new ErrorBilletera(
       "red",
-      `Freighter está en "${red}". Cambia la red a TESTNET en la extensión: este contrato vive ahí y no en mainnet.`,
+      `La wallet está en "${red}". Cámbiala a TESTNET: este contrato vive ahí y no en mainnet.`,
     );
   }
 }
 
-/** Firma el XDR y devuelve el sobre firmado. La llave nunca sale de Freighter. */
+/** Firma el XDR y devuelve el sobre firmado. La llave nunca sale de la wallet. */
 export async function firmar(xdr: string, direccion: string): Promise<string> {
-  const r = await signTransaction(xdr, {
-    networkPassphrase: PASSHRASE_TESTNET,
-    address: direccion,
-  });
-  if (r.error) throw fallo(r, "firma", "Freighter no firmó la transacción.");
-  return r.signedTxXdr;
+  try {
+    await billeteraLista;
+    const { signedTxXdr } = await StellarWalletsKit.signTransaction(xdr, {
+      networkPassphrase: PASSHRASE_TESTNET,
+      address: direccion,
+    });
+    return signedTxXdr;
+  } catch (fallo) {
+    throw new ErrorBilletera("firma", mensaje(fallo) || "La wallet no firmó la transacción.");
+  }
 }

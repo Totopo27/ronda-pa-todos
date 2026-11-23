@@ -16,20 +16,25 @@ sirve para cualquier tanda.
 - Muestra cuántos lugares van ocupados, el orden de cobro sorteado y la cuenta regresiva del
   plazo.
 - Traduce los 13 errores del contrato a una frase en español.
-- Firma con **Freighter**: el cliente nunca pide ni manipula llaves privadas, solo envía el XDR
-  a la extensión y recibe el XDR firmado.
-- Si Freighter está en otra red, bloquea las escrituras con un aviso explícito.
+- Abre un selector de wallets con **Stellar Wallets Kit**. Admite Varial (antes Freighter) y,
+  cuando se configura un Project ID de Reown, WalletConnect para firmar desde móvil.
+- El cliente nunca pide ni manipula llaves privadas: envía el XDR a la wallet elegida y recibe
+  el XDR firmado. Si esa wallet está en otra red, bloquea las escrituras.
+- Ofrece un enlace de Friendbot para fondear directamente la cuenta conectada con XLM de prueba.
 
 ## Requisitos
 
 - Node 20 o superior.
-- Extensión [Freighter](https://freighter.app/) en el navegador, configurada en **testnet**.
+- Una wallet Stellar compatible, configurada en **testnet**.
+- Para WalletConnect, un Project ID gratuito de [Reown Cloud](https://cloud.reown.com/).
 
 ## Desarrollo
 
 ```sh
 cd app
 npm install
+cp .env.example .env.local
+# Sustituye el valor por tu Project ID de Reown
 npm run dev
 ```
 
@@ -79,7 +84,7 @@ constructor y no se pueden cambiar después. Reutilizar un contrato de otro grup
 
 2. **Se reparte el enlace** `…/?contrato=EL_ID` a quienes van a participar.
 
-3. **Cada persona conecta Freighter y firma su inscripción.** El contrato nace vacío y no
+3. **Cada persona conecta su wallet y firma su inscripción.** El contrato nace vacío y no
    distingue invitados de desconocidos: **ocupa un lugar quien llega primero con el enlace**.
    Cuando se llena el cupo, la última firma dispara el sorteo del orden de cobro y nadie puede
    elegirlo.
@@ -104,8 +109,7 @@ esa ronda. La primera devolución congela la tanda: ya no se cobra más.
   de tu pago expiró (vive ~29 días en almacenamiento persistente). Reclamar es una acción de
   días, no de meses.
 - **`PlazoVigente`**: todavía no venció el plazo de la ronda.
-- **Freighter en otra red**: cambia la extensión a testnet; la app bloquea las escrituras hasta
-  entonces.
+- **Wallet en otra red**: cámbiala a testnet; la app bloquea las escrituras hasta entonces.
 
 ## Estructura
 
@@ -116,15 +120,21 @@ app/
 │   ├── logica.ts         lógica pura: errores, acciones, formato, cuenta regresiva
 │   ├── logica.test.ts    pruebas de la lógica pura
 │   ├── cadena.ts         Soroban RPC + cliente del contrato
-│   ├── billetera.ts      wrapper de Freighter
+│   ├── billetera.ts      Stellar Wallets Kit + WalletConnect
 │   ├── main.ts           pintado del DOM y flujo de acciones
 │   └── estilo.css        estilos
 ├── smoke.mjs             comprobación de lecturas de un contrato desplegado
 └── vite.config.ts        build con rutas relativas, Vitest en entorno node
 ```
 
-## Contrato de ejemplo
+## Contrato para la prueba
+
+`CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX` está en testnet, en estado
+`Inscripcion`, con cupo 3, cuota de 10 XLM y plazo de `604800` segundos por ronda (una semana).
+
+## Evidencia histórica
 
 `CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4` (testnet, cupo 3, cuota 10 XLM,
-rondas de 10 minutos). Es un despliegue de demostración que quedó en estado `Abortada` tras
-mostrar la salida de emergencia.
+rondas de 10 minutos). Es evidencia histórica de la salida de emergencia: quedó en estado
+`Abortada` y **no sirve para una prueba nueva**. Despliega otro contrato con un plazo realista,
+por ejemplo `604800` segundos (una semana).

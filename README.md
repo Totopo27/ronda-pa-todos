@@ -5,7 +5,8 @@ semana, y cada semana una distinta se lleva el pozo completo. El orden de cobro 
 sola vez, al llenarse el cupo, y nadie —ni quien despliega el contrato— puede cambiarlo después.
 
 - **Red:** Stellar testnet
-- **Contrato:** [`CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4`](https://stellar.expert/explorer/testnet/contract/CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4)
+- **Contrato para la prueba con usuarios:** [`CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX`](https://stellar.expert/explorer/testnet/contract/CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX) — inscripción abierta, cupo 3, cuota 10 XLM y plazo de una semana por ronda
+- **Contrato de la corrida documentada en §7:** [`CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4`](https://stellar.expert/explorer/testnet/contract/CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4) — abortado; se conserva solo como evidencia histórica
 - **Wasm hash:** `8bd7c0717fb5323233d18edbd7b1b7c37bc3d6d5e17e7aff643c7270e37849be`
 - **SDK:** Soroban 29.0.1 · **Pruebas:** 21/21 en verde
 
@@ -375,11 +376,15 @@ stellar contract invoke --id ronda-pa-todos --source-account <cualquiera> --netw
 ### La interfaz para el grupo
 
 Hay una interfaz estática en `app/` para que cada amigo firme con su propia wallet, sin tocar
-la CLI. Se abre con `?contrato=EL_ID` y no necesita backend.
+la CLI. Se abre con `?contrato=EL_ID` y no necesita backend. Usa Stellar Wallets Kit: conserva
+Varial (antes Freighter) y habilita WalletConnect cuando `VITE_WALLETCONNECT_PROJECT_ID` tiene
+un Project ID de Reown. La interfaz también enlaza Friendbot con la cuenta conectada para que
+cada participante pueda pedir XLM de testnet.
 
 ```sh
 cd app
 npm install
+cp .env.example .env.local  # añade el Project ID de Reown para WalletConnect
 npm run dev
 ```
 

@@ -14,3 +14,4 @@ test_snapshots
 # App (Vite)
 app/node_modules
 app/dist
+app/.env.local

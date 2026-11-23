@@ -1,6 +1,7 @@
 import {
   acortarDireccion,
   describirError,
+  enlaceFriendbot,
   formatearDuracion,
   formatearImporte,
   segundosRestantes,
@@ -267,7 +268,7 @@ function panelAccion(r: Resumen): string {
   const deshabilitado = ui.ocupado || !!ui.avisoRed;
   const boton = sugerencia.accion
     ? `<button class="principal" data-accion="${esc(sugerencia.accion)}" ${deshabilitado ? "disabled" : ""}>
-        ${esc(ui.ocupado ? "Esperando a Freighter…" : BOTON[sugerencia.accion])}
+        ${esc(ui.ocupado ? "Esperando a la wallet…" : BOTON[sugerencia.accion])}
       </button>`
     : "";
 
@@ -315,7 +316,7 @@ function pintarBilletera(): void {
   if (!contenedor) return;
   contenedor.innerHTML = ui.yo
     ? `<span class="conectado">Conectado como <code>${esc(acortarDireccion(ui.yo))}</code></span>`
-    : `<button data-accion="conectar">Conectar Freighter</button>`;
+    : `<button data-accion="conectar">Conectar wallet</button>`;
 }
 
 function pintarMensajes(): void {
@@ -328,6 +329,11 @@ function pintarMensajes(): void {
   if (ui.ultimaTx) {
     partes.push(
       `<p class="exito">Transacción confirmada. <a href="${enlaceTransaccion(ui.ultimaTx)}" target="_blank" rel="noreferrer noopener">Verla en Stellar Expert</a></p>`,
+    );
+  }
+  if (ui.yo) {
+    partes.push(
+      `<p class="fondos">¿Necesitas XLM de prueba? <a href="${enlaceFriendbot(ui.yo)}" target="_blank" rel="noreferrer noopener">Fondear esta cuenta con Friendbot</a>.</p>`,
     );
   }
   contenedor.innerHTML = partes.join("");
