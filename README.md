@@ -38,6 +38,13 @@ organiza decide quién va primero, y esa decisión tiene un valor económico rea
 es recibir un préstamo sin intereses; cobrar último es dar un préstamo sin intereses. Si el
 orden lo elige una persona, la tanda tiene un árbitro con interés propio.
 
+**Por qué este problema y no otro.** Porque es chico, cotidiano y comprobable en una sola
+sesión. Cualquiera en Costa Rica estuvo en una tanda o conoce a alguien que estuvo, así que no
+hay que explicar el negocio antes de mostrar el código. Y el contrato cabe en una sola idea:
+guardar la plata y repartirla en un orden que nadie eligió. Un problema más grande habría
+dejado reglas a medias; este se puede cerrar completo, probarlo de punta a punta y desplegarlo
+en testnet con tres cuentas.
+
 ## 2. La idea
 
 Poner las reglas en un contrato y quitar al custodio del medio.
@@ -126,6 +133,10 @@ ronda. Quien ya había cobrado se queda con lo cobrado.
 ## 4. La decisión de diseño que más importa: sin admin
 
 El contrato **no tiene administrador**. No es un olvido, es el punto.
+
+La clase de contratos del bootcamp presenta el patrón opuesto —un `admin` guardado en el
+storage del que cuelgan las funciones privilegiadas—; aquí se quitó a propósito. El detalle de
+qué viene de la clase y qué no está en §12.
 
 No existe función para añadir o quitar miembros, ni para cambiar la cuota, ni para reordenar
 el sorteo, ni para pausar, ni para sacar fondos. El ABI exporta 15 funciones y ninguna de
@@ -451,6 +462,32 @@ contracts/ronda_pa_todos/
 app/                                interfaz estática (Vite + TypeScript)
 scripts/desplegar.ps1               despliegue de una tanda nueva en testnet
 ```
+
+## 12. Base en el material del curso
+
+El andamiaje del contrato viene de la clase de contratos del bootcamp (Clase 2, Armando):
+
+| De la clase | Dónde vive |
+| --- | --- |
+| Rust + SDK de Soroban, compilar a `wasm32v1-none` | `Cargo.toml`, `AGENTS.md` |
+| Storage `instance` / `persistent` y el TTL con archivado | `lib.rs`, `TTL_UMBRAL` y `extend_ttl` |
+| Constructor que corre antes del despliegue (`__constructor`) | `lib.rs:100` |
+| `require_auth` con la regla de que firma quien pierde algo | `unirse`, `aportar`, `reclamar` |
+| Errores tipados con `#[contracterror]` | `lib.rs:74` (`Error`) |
+| Tests con `Env::default()`, `register`, cliente y `mock_all_auths` | `test.rs`, 21 pruebas |
+| Desplegar e invocar desde la CLI | `scripts/desplegar.ps1` |
+
+El TTL no está de adorno: en la clase se contó el caso de un contrato propio que se archivó y
+empezó a cobrarles de más a sus usuarios al restaurarlo. Por eso cada escritura extiende el
+TTL en vez de confiar en el default.
+
+**Lo que se agregó por cuenta propia:** las transferencias reales del token (`token::Client`
+sobre el SAC) y el sorteo con `env.prng().shuffle`. El único contrato que se muestra y despliega
+en clase es un contador; ahí la plata no se mueve, así que esa parte hubo que resolverla.
+
+**La desviación deliberada** es la de §4: la clase presenta el `admin` en storage como patrón
+recomendado, y este contrato no lo tiene. Un admin que puede corregir reintroduce el problema
+que el contrato venía a resolver.
 
 ---
 
