@@ -41,8 +41,8 @@ const { result } = await cliente.resumen({ miembro: undefined });
 
 console.log(`Contrato ${id}`);
 console.log(`  estado:    ${result.estado?.tag ?? result.estado}`);
-console.log(`  ronda:     ${result.ronda} de ${result.miembros.length}`);
-console.log(`  inscritos: ${result.inscritos} de ${result.miembros.length}`);
+console.log(`  ronda:     ${result.ronda} de ${result.cupo}`);
+console.log(`  cupo:      ${result.inscritos} de ${result.cupo} lugares ocupados`);
 console.log(`  aporte:    ${result.aporte} (unidades mínimas del token)`);
 console.log(`  duracion:  ${result.duracion} s`);
 console.log(`  inicio:    ${Number(result.inicio) === 0 ? "sin arrancar" : result.inicio}`);

@@ -26,6 +26,7 @@ function tanda(cambios: Partial<Resumen> = {}): Resumen {
     orden: [CAROL, ANA, BETO],
     aporte: 10_0000000n,
     duracion: 600n,
+    cupo: 3,
     inscritos: 3,
     inicio: 1000n,
     aQuienToca: CAROL,
@@ -46,6 +47,7 @@ describe("normalizarResumen", () => {
       orden: [ANA],
       aporte: 1_0000000n,
       duracion: 600n,
+      cupo: 3,
       inscritos: 1,
       inicio: 42n,
       a_quien_toca: ANA,
@@ -56,6 +58,7 @@ describe("normalizarResumen", () => {
 
     expect(r.estado).toBe("Activa");
     expect(r.aporte).toBe(1_0000000n);
+    expect(r.cupo).toBe(3);
     expect(r.inicio).toBe(42n);
     expect(r.aQuienToca).toBe(ANA);
     expect(r.haPagado).toBe(true);
@@ -91,8 +94,22 @@ describe("sugerirAccion", () => {
     expect(r.accion).toBe("unirse");
   });
 
-  it("cuenta las firmas que faltan cuando ya firmé", () => {
-    const r = sugerirAccion(tanda({ estado: "Inscripcion", inscritos: 2 }), ANA, 0);
+  it("ofrece inscribirse a una cuenta que no está en ninguna lista", () => {
+    const r = sugerirAccion(
+      tanda({ estado: "Inscripcion", unido: false, orden: [], miembros: [], inscritos: 0 }),
+      "GOTRA",
+      0,
+    );
+    expect(r.accion).toBe("unirse");
+    expect(r.motivo).toMatch(/ocupa un lugar/i);
+  });
+
+  it("cuenta los lugares que faltan cuando ya estoy dentro", () => {
+    const r = sugerirAccion(
+      tanda({ estado: "Inscripcion", unido: true, inscritos: 2, cupo: 3 }),
+      ANA,
+      0,
+    );
     expect(r.accion).toBeNull();
     expect(r.motivo).toMatch(/falta 1 firma/i);
   });

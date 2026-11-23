@@ -16,6 +16,8 @@ export interface Resumen {
   orden: string[];
   aporte: bigint;
   duracion: bigint;
+  /** Cuántos lugares tiene la tanda en total. */
+  cupo: number;
   inscritos: number;
   inicio: bigint;
   aQuienToca: string | null;
@@ -66,6 +68,7 @@ export function normalizarResumen(crudo: unknown): Resumen {
     orden: direcciones(c.orden),
     aporte: entero(c.aporte),
     duracion: entero(c.duracion),
+    cupo: Number(entero(c.cupo)),
     inscritos: Number(entero(c.inscritos)),
     inicio: entero(c.inicio),
     aQuienToca: typeof c.a_quien_toca === "string" ? c.a_quien_toca : null,
@@ -98,71 +101,76 @@ export function sugerirAccion(
 ): Sugerencia {
   if (!r) return { accion: null, motivo: "Leyendo la tanda en testnet…" };
   if (!yo) return { accion: null, motivo: "Conecta tu billetera para participar." };
+
+  const estado = r.estado;
+
+  // Mientras hay cupo, la inscripción está abierta para cualquiera: no hace
+  // falta estar en ninguna lista previa, solo firmar con la propia wallet.
+  if (estado === "Inscripcion") {
+    if (r.unido) {
+      const faltan = Math.max(0, r.cupo - r.inscritos);
+      return {
+        accion: null,
+        motivo:
+          faltan === 1
+            ? "Ya estás dentro. Falta 1 firma para que se llene el cupo y arranque la tanda."
+            : `Ya estás dentro. Faltan ${faltan} firmas para que se llene el cupo y arranque la tanda.`,
+      };
+    }
+    return {
+      accion: "unirse",
+      motivo:
+        "Firma tu inscripción y ocupa un lugar. Cuando se llene el cupo, se sortea el orden de cobro.",
+    };
+  }
+
+  // De aquí en adelante sí hay lista cerrada: el cupo ya se llenó.
   if (!r.miembros.includes(yo)) {
     return { accion: null, motivo: "Tu cuenta no está entre los miembros de esta tanda." };
   }
 
   const vigente = segundosRestantes(r, ahoraSegundos) > 0;
 
-  switch (r.estado) {
-    case "Inscripcion": {
-      if (!r.unido) {
-        return {
-          accion: "unirse",
-          motivo: "Firma tu inscripción. Cuando firmen todos, se sortea el orden de cobro.",
-        };
-      }
-      const faltan = Math.max(0, r.miembros.length - r.inscritos);
-      return {
-        accion: null,
-        motivo:
-          faltan === 1
-            ? "Ya firmaste. Falta 1 firma para que arranque la tanda."
-            : `Ya firmaste. Faltan ${faltan} firmas para que arranque la tanda.`,
-      };
+  if (estado === "Abortada") {
+    if (r.yaDevuelto) {
+      return { accion: null, motivo: "La tanda se abortó y ya recuperaste tu aporte." };
     }
-
-    case "Activa": {
-      if (r.haPagado) {
-        if (!vigente) {
-          return {
-            accion: "reclamar",
-            motivo: "El plazo venció y la ronda no se completó. Puedes recuperar tu aporte.",
-            aviso: "Si reclamas, la tanda se aborta para todos y nadie más cobra su pozo.",
-          };
-        }
-        return {
-          accion: null,
-          motivo: "Ya aportaste esta ronda. Esperando a los demás.",
-        };
-      }
-      if (!vigente) {
-        return {
-          accion: "aportar",
-          motivo: "El plazo de esta ronda ya venció, pero nadie ha reclamado todavía.",
-          aviso:
-            "Si aportas ahora y la ronda no se completa, recuperarás tu aporte con Reclamar.",
-        };
-      }
-      return { accion: "aportar", motivo: "Te toca aportar la cuota de esta ronda." };
+    if (r.haPagado) {
+      return { accion: "reclamar", motivo: "La tanda se abortó. Recupera tu aporte." };
     }
-
-    case "Abortada": {
-      if (r.yaDevuelto) {
-        return { accion: null, motivo: "La tanda se abortó y ya recuperaste tu aporte." };
-      }
-      if (r.haPagado) {
-        return { accion: "reclamar", motivo: "La tanda se abortó. Recupera tu aporte." };
-      }
-      return {
-        accion: null,
-        motivo: "La tanda se abortó. No aportaste esta ronda, así que no hay nada que reclamar.",
-      };
-    }
-
-    case "Terminada":
-      return { accion: null, motivo: "La tanda terminó: todos cobraron su pozo una vez." };
+    return {
+      accion: null,
+      motivo: "La tanda se abortó. No aportaste esta ronda, así que no hay nada que reclamar.",
+    };
   }
+
+  if (estado === "Terminada") {
+    return { accion: null, motivo: "La tanda terminó: todos cobraron su pozo una vez." };
+  }
+
+  // Activa.
+  if (r.haPagado) {
+    if (!vigente) {
+      return {
+        accion: "reclamar",
+        motivo: "El plazo venció y la ronda no se completó. Puedes recuperar tu aporte.",
+        aviso: "Si reclamas, la tanda se aborta para todos y nadie más cobra su pozo.",
+      };
+    }
+    return {
+      accion: null,
+      motivo: "Ya aportaste esta ronda. Esperando a los demás.",
+    };
+  }
+  if (!vigente) {
+    return {
+      accion: "aportar",
+      motivo: "El plazo de esta ronda ya venció, pero nadie ha reclamado todavía.",
+      aviso:
+        "Si aportas ahora y la ronda no se completa, recuperarás tu aporte con Reclamar.",
+    };
+  }
+  return { accion: "aportar", motivo: "Te toca aportar la cuota de esta ronda." };
 }
 
 /** `15000000n` con 7 decimales es "1.5", no "1.5000000". */
@@ -186,12 +194,12 @@ export function formatearDuracion(segundos: number): string {
 }
 
 const ERRORES: Record<number, string> = {
-  1: "La lista de miembros no sirve: hacen falta al menos dos direcciones distintas.",
+  1: "El cupo de la tanda tiene que ser al menos 2 (una tanda de una persona no es una tanda).",
   2: "La cuota tiene que ser mayor que cero.",
   3: "El plazo tiene que ser mayor que cero.",
   4: "Tu cuenta no está entre los miembros de esta tanda.",
-  5: "Esa cuenta ya firmó su inscripción.",
-  6: "La inscripción ya cerró: la tanda está en marcha.",
+  5: "Esa cuenta ya ocupó un lugar en esta tanda.",
+  6: "La inscripción ya cerró: el cupo está lleno y la tanda está en marcha.",
   7: "La tanda todavía no arrancó: faltan firmas de inscripción.",
   8: "Esa cuenta ya aportó esta ronda.",
   9: "La tanda ya terminó o se abortó; no admite más aportes.",

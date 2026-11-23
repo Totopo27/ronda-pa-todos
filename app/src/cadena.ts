@@ -8,7 +8,7 @@ export type Firmador = (xdr: string) => Promise<string>;
 
 /** Nombres de los errores del contrato, para que el SDK los pueda resolver. */
 const ERRORES: Record<number, { message: string }> = {
-  1: { message: "MiembrosInvalidos" },
+  1: { message: "CupoInvalido" },
   2: { message: "AporteInvalido" },
   3: { message: "DuracionInvalida" },
   4: { message: "NoEsMiembro" },

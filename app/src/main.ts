@@ -156,7 +156,7 @@ function textoCuota(r: Resumen): string {
 
 function textoCuenta(r: Resumen): string {
   if (r.estado === "Inscripcion") {
-    return "La cuenta regresiva empieza cuando firman todos los miembros.";
+    return "La cuenta regresiva empieza cuando se llena el cupo.";
   }
   if (r.estado === "Terminada") {
     return "La tanda terminó: todos cobraron su pozo exactamente una vez.";
@@ -164,10 +164,10 @@ function textoCuenta(r: Resumen): string {
   if (r.estado === "Abortada") {
     return "La tanda se abortó. Quien aportó su cuota de esta ronda puede recuperarla.";
   }
-  const ronda = Math.min(r.ronda + 1, r.miembros.length);
+  const ronda = Math.min(r.ronda + 1, r.cupo);
   const restante = segundosRestantes(r, ahora());
   if (restante > 0) {
-    return `Quedan ${formatearDuracion(restante)} para que cierre la ronda ${ronda} de ${r.miembros.length}.`;
+    return `Quedan ${formatearDuracion(restante)} para que cierre la ronda ${ronda} de ${r.cupo}.`;
   }
   return `El plazo de la ronda ${ronda} ya venció. Quien aportó puede recuperar su dinero; quien no aportó ya no cobrará su pozo.`;
 }
@@ -176,7 +176,7 @@ function panelTanda(r: Resumen): string {
   const ronda =
     r.estado === "Inscripcion"
       ? "—"
-      : `${Math.min(r.ronda + 1, r.miembros.length)} de ${r.miembros.length}`;
+      : `${Math.min(r.ronda + 1, r.cupo)} de ${r.cupo}`;
 
   return `
     <section class="panel">
@@ -188,7 +188,7 @@ function panelTanda(r: Resumen): string {
         <div><dt>Cuota</dt><dd>${esc(textoCuota(r))}</dd></div>
         <div><dt>Plazo por ronda</dt><dd>${esc(formatearDuracion(Number(r.duracion)))}</dd></div>
         <div><dt>Ronda</dt><dd>${esc(ronda)}</dd></div>
-        <div><dt>Miembros</dt><dd>${r.miembros.length}</dd></div>
+        <div><dt>Lugares</dt><dd>${r.inscritos} de ${r.cupo} ocupados</dd></div>
       </dl>
       <p class="cuenta" id="cuenta">${esc(textoCuenta(r))}</p>
       <p class="pie-panel">
@@ -198,28 +198,29 @@ function panelTanda(r: Resumen): string {
         >
       </p>
     </section>
-    ${panelFirmas(r)}
+    ${panelInscripcion(r)}
     ${panelMiembros(r)}
     ${panelOrden(r)}
     ${panelAccion(r)}
   `;
 }
 
-function panelFirmas(r: Resumen): string {
+function panelInscripcion(r: Resumen): string {
   if (r.estado !== "Inscripcion") return "";
-  const total = Math.max(1, r.miembros.length);
+  const total = Math.max(1, r.cupo);
   const porcentaje = Math.min(100, Math.round((r.inscritos / total) * 100));
   return `
     <section class="panel">
-      <h2>Firmas de inscripción</h2>
+      <h2>Inscripciones</h2>
       <div class="barra"><span style="width: ${porcentaje}%"></span></div>
-      <p>${r.inscritos} de ${r.miembros.length} firmaron. La tanda arranca sola cuando firma el último.</p>
-      <p class="pie-panel">Si alguien no firma, el grupo se queda esperando: el contrato no permite expulsar ni reemplazar a nadie.</p>
+      <p>${r.inscritos} de ${r.cupo} lugares ocupados. La tanda arranca sola cuando se llena el cupo.</p>
+      <p class="pie-panel">Cualquiera con el enlace puede ocupar un lugar libre: el contrato no distingue invitados de desconocidos.</p>
     </section>
   `;
 }
 
 function panelMiembros(r: Resumen): string {
+  if (r.miembros.length === 0) return "";
   const items = r.miembros
     .map((m) => {
       const yo = m === ui.yo ? ' <span class="tu">tú</span>' : "";
@@ -255,7 +256,7 @@ function panelOrden(r: Resumen): string {
   return `
     <section class="panel">
       <h2>Orden de cobro</h2>
-      <p class="pie-panel">Lo sorteó la red cuando firmó el último miembro. Nadie pudo elegirlo.</p>
+      <p class="pie-panel">Lo sorteó la red cuando se llenó el cupo. Nadie pudo elegirlo.</p>
       <ol class="orden">${items}</ol>
     </section>
   `;
@@ -285,27 +286,24 @@ function panelIntro(): string {
     <section class="panel">
       <h2>Falta el ID</h2>
       <p>
-        El organizador del grupo despliega el contrato una vez con las direcciones de todos y reparte
-        el enlace. Pega el ID (<code>C…</code>, 56 caracteres) en el campo de arriba.
+        El organizador despliega el contrato una vez con la cuota, el plazo y el cupo, y reparte
+        el enlace. Cada persona firma su inscripción con su propia wallet hasta llenar el cupo.
+        Pega el ID (<code>C…</code>, 56 caracteres) en el campo de arriba.
       </p>
       <details>
         <summary>Cómo desplegar una tanda nueva</summary>
-        <pre># 1. Las direcciones G... de cada amigo, en un archivo JSON:
-#    ["G...","G...","G..."]
-
-# 2. Compila y despliega en testnet (la cuota va en stroops):
+        <pre># 1. Compila y despliega en testnet (la cuota va en stroops):
 stellar contract build
 stellar contract deploy \\
   --wasm target/wasm32v1-none/release/ronda_pa_todos.wasm \\
   --source-account mi-cuenta --network testnet \\
   -- --token CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \\
-     --miembros-file-path miembros.json \\
-     --aporte 1000000000 --duracion 604800
+     --aporte 1000000000 --duracion 604800 --cupo 3
 
-# 3. Abre la página con ?contrato=EL_ID_QUE_DEVOLVIO</pre>
+# 2. Abre la página con ?contrato=EL_ID_QUE_DEVOLVIO</pre>
         <p class="pie-panel">
-          Cada grupo necesita su propio despliegue: la lista de miembros se fija al crear el
-          contrato y no se puede cambiar después.
+          Cada grupo necesita su propio despliegue: la cuota, el plazo y el cupo se fijan al
+          crear el contrato y no se pueden cambiar después.
         </p>
       </details>
     </section>
