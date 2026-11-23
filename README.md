@@ -172,14 +172,14 @@ transacciones y complejidad considerables para un riesgo que, en el caso de uso,
 
 ## 6. Pruebas
 
-19 pruebas de host (`Env::default()`, sin red), una por regla:
+22 pruebas de host (`Env::default()`, sin red), una por regla:
 
 ```sh
 cargo test
 ```
 
 ```
-running 19 tests
+running 22 tests
 test test::constructor_rechaza_menos_de_dos ... ok
 test test::constructor_rechaza_duplicados ... ok
 test test::constructor_rechaza_aporte_invalido ... ok
@@ -199,8 +199,11 @@ test test::reclamar_antes_del_plazo_falla ... ok
 test test::reclamar_devuelve_el_aporte_y_aborta ... ok
 test test::no_se_reclama_dos_veces ... ok
 test test::ha_pagado_refleja_la_ronda ... ok
+test test::resumen_durante_la_inscripcion ... ok
+test test::resumen_durante_las_rondas ... ok
+test test::resumen_marca_la_tanda_terminada ... ok
 
-test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
 ```
 
 | Prueba | Qué garantiza |
@@ -224,6 +227,9 @@ test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 | `reclamar_devuelve_el_aporte_y_aborta` | La devolución es exacta y congela la tanda |
 | `no_se_reclama_dos_veces` | El reembolso no se puede repetir |
 | `ha_pagado_refleja_la_ronda` | El estado de pago que ve el miembro es el real |
+| `resumen_durante_la_inscripcion` | Antes de arrancar, `resumen` reporta inscritos, orden vacío y quién falta |
+| `resumen_durante_las_rondas` | Con la tanda en marcha, `resumen` dice la ronda, a quién toca y si pagué |
+| `resumen_marca_la_tanda_terminada` | Al terminar, `resumen` lo refleja y ya no hay turno |
 
 La prueba del sorteo verifica **propiedades**, no una secuencia: que el resultado sea una
 permutación de la lista original y que `a_quien_toca()` coincida con `Orden[0]`. Fijar la
@@ -353,6 +359,25 @@ stellar contract invoke --id ronda-pa-todos --source-account <cualquiera> --netw
   -- orden
 ```
 
+### La interfaz para el grupo
+
+Hay una interfaz estática en `app/` para que cada amigo firme con su propia wallet, sin tocar
+la CLI. Se abre con `?contrato=EL_ID` y no necesita backend.
+
+```sh
+cd app
+npm install
+npm run dev
+```
+
+Para desplegar una tanda nueva con las direcciones del grupo:
+
+```powershell
+.\scripts\desplegar.ps1 -Miembros GAAA...,GBBB...,GCCC... -Cuenta <tu-identidad> -Aporte 10
+```
+
+El flujo completo, los comandos y el aviso de testnet están en [`app/README.md`](app/README.md).
+
 ## 9. Límites conocidos
 
 Prefiero que los sepas por mí y no que los descubras tú.
@@ -387,8 +412,11 @@ Prefiero que los sepas por mí y no que los descubras tú.
   solo moroso no congele el cobro de todos.
 - **Historial de tanda en eventos**, para que la app cliente muestre quién pagó qué sin
   consultar cada clave de almacenamiento.
-- **Clientes generados** con `stellar contract bindings` y una interfaz mínima: la tanda real
-  ocurre en un grupo de WhatsApp, y ahí es donde vive la fricción de uso.
+- **Expulsión antes de activar**: si un miembro se arrepiente y nunca firma, hoy el contrato
+  queda muerto (§9.5). Una salida con reembolso de firmas y reemplazo permitiría armar el grupo
+  sin desplegar de nuevo.
+- **Publicar la interfaz**: el build de `app/` es estático y funciona en GitHub Pages, Vercel o
+  cualquier hosting; falta decidir dónde.
 
 ## 11. Estructura del repo
 
@@ -399,7 +427,9 @@ contracts/ronda_pa_todos/
 ├── Makefile
 └── src/
     ├── lib.rs                      contrato completo (14 funciones exportadas)
-    └── test.rs                     19 pruebas de host
+    └── test.rs                     22 pruebas de host
+app/                                interfaz estática (Vite + TypeScript)
+scripts/desplegar.ps1               despliegue de una tanda nueva en testnet
 ```
 
 ---
