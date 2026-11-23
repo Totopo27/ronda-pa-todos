@@ -4,6 +4,9 @@
   "private": true,
   "description": "Interfaz mínima de RondaPa' Todos: tanda de ahorro circular sobre Stellar testnet.",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

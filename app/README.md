@@ -55,6 +55,33 @@ Abre la URL que imprime Vite y añade `?contrato=EL_ID_DE_TU_TANDA`.
 cualquier carpeta: GitHub Pages, un subdirectorio o incluso abierto con doble clic (con
 limitaciones del navegador para módulos).
 
+## Publicación en Vercel
+
+La app es estática: Vercel solo publica `dist/`. No hay backend ni funciones.
+
+| Ajuste | Valor |
+| --- | --- |
+| Root Directory | `app` |
+| Framework Preset | Vite |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Node.js Version | `22.x` (fijado en `engines`; Vite 8 exige `^20.19` o `>=22.12`) |
+
+El **Root Directory** tiene que ser `app`, no la raíz: arriba hay un workspace de Rust que
+Vercel no necesita compilar.
+
+Variables de entorno (opcional, solo para firmar desde móvil):
+
+- `VITE_WALLETCONNECT_PROJECT_ID`: Project ID de Reown. Sin ella la app ofrece únicamente
+  wallets de extensión. El dominio de producción debe estar permitido en ese proyecto.
+
+El contrato **no** va en una variable: entra por `?contrato=C...`. Un mismo despliegue sirve
+para cualquier tanda y no hay que reconstruir para crear una nueva.
+
+`vercel.json` añade cabeceras de seguridad y cache inmutable para `/assets/*` (Vite pone un
+hash en cada nombre). No lleva `rewrites`: la app no tiene rutas de cliente, todo viaja por
+query string.
+
 ## Flujo completo para un grupo nuevo
 
 Cada grupo necesita **su propio despliegue**: la cuota, el plazo y el cupo se fijan en el
