@@ -2,11 +2,15 @@ import {
   acortarDireccion,
   describirError,
   enlaceFriendbot,
+  entregaDeRondaCerrada,
+  entregasRealizadas,
   formatearDuracion,
   formatearImporte,
+  montoPozo,
   segundosRestantes,
   sugerirAccion,
   type Accion,
+  type EntregaPozo,
   type Resumen,
 } from "./logica";
 import {
@@ -14,6 +18,7 @@ import {
   ejecutar,
   enlaceContrato,
   enlaceTransaccion,
+  leerPagadosRonda,
   leerResumen,
   leerToken,
   type Token,
@@ -49,6 +54,8 @@ interface Estado {
   yo: string | null;
   resumen: Resumen | null;
   token: Token | null;
+  pagadosRonda: Set<string> | null;
+  rondaRecienCerrada: EntregaPozo | null;
   errorCarga: string | null;
   errorAccion: string | null;
   avisoRed: string | null;
@@ -63,6 +70,8 @@ const ui: Estado = {
   yo: null,
   resumen: null,
   token: null,
+  pagadosRonda: null,
+  rondaRecienCerrada: null,
   errorCarga: null,
   errorAccion: null,
   avisoRed: null,
@@ -102,10 +111,23 @@ async function refrescar(): Promise<void> {
   if (!ui.contrato || leyendo) return;
   leyendo = true;
   try {
+    const anterior = ui.resumen;
     const resumen = await leerResumen(ui.contrato, ui.yo);
     ui.resumen = resumen;
     ui.errorCarga = null;
-    ui.token = resumen.token ? await leerToken(resumen.token).catch(() => null) : null;
+    const cerrada = entregaDeRondaCerrada(anterior, resumen);
+    if (cerrada) ui.rondaRecienCerrada = cerrada;
+
+    const leerPagados =
+      resumen.estado === "Activa" || resumen.estado === "Abortada"
+        ? leerPagadosRonda(ui.contrato, resumen.miembros).catch(() => null)
+        : Promise.resolve(null);
+    const [token, pagadosRonda] = await Promise.all([
+      resumen.token ? leerToken(resumen.token).catch(() => null) : Promise.resolve(null),
+      leerPagados,
+    ]);
+    ui.token = token;
+    ui.pagadosRonda = pagadosRonda;
   } catch (fallo) {
     ui.errorCarga = mensajeDe(fallo);
   } finally {
@@ -183,6 +205,7 @@ async function actuar(accion: Accion): Promise<void> {
   ui.ocupado = true;
   ui.errorAccion = null;
   ui.ultimaTx = null;
+  ui.rondaRecienCerrada = null;
   pintar();
 
   try {
@@ -201,9 +224,13 @@ async function actuar(accion: Accion): Promise<void> {
 
 // --- Pintado ------------------------------------------------------------
 
+function textoMonto(stroops: bigint): string {
+  if (!ui.token) return `${formatearImporte(stroops, 0)} unidades del token`;
+  return `${formatearImporte(stroops, ui.token.decimales)} ${ui.token.simbolo}`;
+}
+
 function textoCuota(r: Resumen): string {
-  if (!ui.token) return `${formatearImporte(r.aporte, 0)} unidades del token`;
-  return `${formatearImporte(r.aporte, ui.token.decimales)} ${ui.token.simbolo}`;
+  return textoMonto(r.aporte);
 }
 
 function textoCuenta(r: Resumen): string {
@@ -238,6 +265,7 @@ function panelTanda(r: Resumen): string {
       </div>
       <dl class="datos">
         <div><dt>Cuota</dt><dd>${esc(textoCuota(r))}</dd></div>
+        <div><dt>Pozo por ronda</dt><dd>${esc(textoMonto(montoPozo(r)))}</dd></div>
         <div><dt>Plazo por ronda</dt><dd>${esc(formatearDuracion(Number(r.duracion)))}</dd></div>
         <div><dt>Ronda</dt><dd>${esc(ronda)}</dd></div>
         <div><dt>Lugares</dt><dd>${r.inscritos} de ${r.cupo} ocupados</dd></div>
@@ -251,9 +279,72 @@ function panelTanda(r: Resumen): string {
       </p>
     </section>
     ${panelInscripcion(r)}
+    ${panelAportesRonda(r)}
+    ${panelEntregas(r)}
     ${panelMiembros(r)}
     ${panelOrden(r)}
     ${panelAccion(r)}
+  `;
+}
+
+function panelAportesRonda(r: Resumen): string {
+  if (r.estado !== "Activa") return "";
+  const rondaActual = Math.min(r.ronda + 1, r.cupo);
+  const pozo = montoPozo(r);
+
+  let progreso = "";
+  if (ui.pagadosRonda) {
+    const pagados = r.miembros.filter((m) => ui.pagadosRonda?.has(m)).length;
+    const total = Math.max(1, r.cupo);
+    const porcentaje = Math.min(100, Math.round((pagados / total) * 100));
+    const reunido = r.aporte * BigInt(pagados);
+    progreso = `
+      <div class="barra"><span style="width: ${porcentaje}%"></span></div>
+      <p>${pagados} de ${r.cupo} aportes reunidos (${esc(textoMonto(reunido))} de ${esc(textoMonto(pozo))}).</p>
+    `;
+  }
+
+  const destino = r.aQuienToca
+    ? `<code>${esc(acortarDireccion(r.aQuienToca))}</code>${r.aQuienToca === ui.yo ? ' <span class="tu">tú</span>' : ""}`
+    : "la persona en turno";
+
+  return `
+    <section class="panel">
+      <h2>Aportes de la ronda ${rondaActual}</h2>
+      ${progreso}
+      <p class="pie-panel">
+        Al reunir los ${r.cupo} aportes, el contrato envía de inmediato el pozo completo (${esc(textoMonto(pozo))}) a ${destino}.
+      </p>
+    </section>
+  `;
+}
+
+function panelEntregas(r: Resumen): string {
+  const entregas = entregasRealizadas(r);
+  if (entregas.length === 0) return "";
+  const items = entregas
+    .map((e) => {
+      const reciente = ui.rondaRecienCerrada?.ronda === e.ronda;
+      const yo = e.receptor === ui.yo ? ' <span class="tu">tú</span>' : "";
+      return `<li class="${reciente ? "reciente" : ""}">
+        <span class="num">Ronda ${e.ronda}</span>
+        <span class="detalle">
+          Todos aportaron (${e.aportes}/${e.aportes}) · Pozo de ${esc(textoMonto(e.monto))} enviado a
+          <code>${esc(acortarDireccion(e.receptor))}</code>${yo}
+        </span>
+        <span class="marca-ok">${reciente ? "recién enviado" : "enviado"}</span>
+      </li>`;
+    })
+    .join("");
+
+  return `
+    <section class="panel">
+      <h2>Pozos entregados</h2>
+      <p class="pie-panel">
+        En cada ronda cerrada se reunieron todas las cuotas y el pozo completo se transfirió automáticamente según el orden sorteado.
+      </p>
+      <ol class="entregas">${items}</ol>
+    </section>
   `;
 }
 
@@ -273,10 +364,16 @@ function panelInscripcion(r: Resumen): string {
 
 function panelMiembros(r: Resumen): string {
   if (r.miembros.length === 0) return "";
+  const mostrarPago =
+    ui.pagadosRonda !== null && (r.estado === "Activa" || r.estado === "Abortada");
   const items = r.miembros
     .map((m) => {
       const yo = m === ui.yo ? ' <span class="tu">tú</span>' : "";
-      return `<li class="${m === ui.yo ? "yo" : ""}"><code>${esc(acortarDireccion(m))}</code>${yo}</li>`;
+      const pago = mostrarPago && ui.pagadosRonda?.has(m);
+      const estadoPago = mostrarPago
+        ? ` <span class="estado-pago ${pago ? "pago" : "pendiente"}">${pago ? "aportó" : "pendiente"}</span>`
+        : "";
+      return `<li class="${m === ui.yo ? "yo" : ""}"><code>${esc(acortarDireccion(m))}</code>${yo}${estadoPago}</li>`;
     })
     .join("");
   return `
@@ -379,9 +476,18 @@ function pintarMensajes(): void {
   if (ui.avisoBilletera) partes.push(`<p class="aviso">${esc(ui.avisoBilletera)}</p>`);
   if (ui.errorAccion) partes.push(`<p class="error">${esc(ui.errorAccion)}</p>`);
   if (ui.errorCarga) partes.push(`<p class="error">${esc(ui.errorCarga)}</p>`);
-  if (ui.ultimaTx) {
+  if (ui.rondaRecienCerrada) {
+    const e = ui.rondaRecienCerrada;
+    const tu = e.receptor === ui.yo ? " (tú)" : "";
+    const enlace = ui.ultimaTx
+      ? ` <a href="${esc(enlaceTransaccion(ui.ultimaTx))}" target="_blank" rel="noreferrer noopener">Verla en Stellar Expert</a>`
+      : "";
     partes.push(
-      `<p class="exito">Transacción confirmada. <a href="${enlaceTransaccion(ui.ultimaTx)}" target="_blank" rel="noreferrer noopener">Verla en Stellar Expert</a></p>`,
+      `<p class="exito">Ronda ${e.ronda} completada: aportaron los ${e.aportes}/${e.aportes} miembros y ya se envió el pozo de ${esc(textoMonto(e.monto))} a <code>${esc(acortarDireccion(e.receptor))}</code>${tu}.${enlace}</p>`,
+    );
+  } else if (ui.ultimaTx) {
+    partes.push(
+      `<p class="exito">Transacción confirmada. <a href="${esc(enlaceTransaccion(ui.ultimaTx))}" target="_blank" rel="noreferrer noopener">Verla en Stellar Expert</a></p>`,
     );
   }
   if (ui.yo && ui.fondeada !== true) {

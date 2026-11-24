@@ -44,6 +44,7 @@ const ERRORES: Record<number, { message: string }> = {
 /** Las funciones del contrato, tal como las genera el SDK en runtime. */
 interface ContratoTanda {
   resumen(args: { miembro?: string }): Promise<contract.AssembledTransaction<unknown>>;
+  ha_pagado(args: { miembro: string }): Promise<contract.AssembledTransaction<boolean>>;
   unirse(args: { miembro: string }): Promise<contract.AssembledTransaction<unknown>>;
   aportar(args: { miembro: string }): Promise<contract.AssembledTransaction<unknown>>;
   reclamar(args: { miembro: string }): Promise<contract.AssembledTransaction<unknown>>;
@@ -124,6 +125,22 @@ export async function leerResumen(contratoId: string, yo: string | null): Promis
   const c = await cliente<ContratoTanda>(contratoId);
   const tx = await c.resumen({ miembro: yo ?? undefined });
   return normalizarResumen(tx.result);
+}
+
+/** Devuelve qué miembros ya aportaron la ronda en curso usando el cliente cacheado. */
+export async function leerPagadosRonda(
+  contratoId: string,
+  miembros: string[],
+): Promise<Set<string>> {
+  if (miembros.length === 0) return new Set();
+  const c = await cliente<ContratoTanda>(contratoId);
+  const resultados = await Promise.all(
+    miembros.map(async (miembro) => {
+      const tx = await c.ha_pagado({ miembro });
+      return [miembro, tx.result === true] as const;
+    }),
+  );
+  return new Set(resultados.filter(([, pagado]) => pagado).map(([miembro]) => miembro));
 }
 
 export interface Envio {

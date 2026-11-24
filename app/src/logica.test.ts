@@ -4,8 +4,11 @@ import {
   codigoDeError,
   describirError,
   enlaceFriendbot,
+  entregaDeRondaCerrada,
+  entregasRealizadas,
   formatearDuracion,
   formatearImporte,
+  montoPozo,
   normalizarResumen,
   quienesCobraron,
   segundosRestantes,
@@ -169,6 +172,47 @@ describe("quienesCobraron", () => {
 
   it("no inventa cobros si la ronda no cuadra con el orden", () => {
     expect(quienesCobraron(tanda({ ronda: 9 }))).toEqual([CAROL, ANA, BETO]);
+  });
+});
+
+describe("entregas de pozo", () => {
+  it("calcula el pozo completo de la ronda en bigint", () => {
+    expect(montoPozo(tanda())).toBe(30_0000000n);
+    expect(montoPozo(tanda({ cupo: 0 }))).toBe(0n);
+  });
+
+  it("lista los pozos entregados con ronda, receptor, monto y aportes", () => {
+    expect(entregasRealizadas(tanda({ ronda: 0 }))).toEqual([]);
+    expect(entregasRealizadas(tanda({ ronda: 2 }))).toEqual([
+      { ronda: 1, receptor: CAROL, monto: 30_0000000n, aportes: 3 },
+      { ronda: 2, receptor: ANA, monto: 30_0000000n, aportes: 3 },
+    ]);
+    expect(entregasRealizadas(tanda({ estado: "Terminada", ronda: 3 }))).toEqual([
+      { ronda: 1, receptor: CAROL, monto: 30_0000000n, aportes: 3 },
+      { ronda: 2, receptor: ANA, monto: 30_0000000n, aportes: 3 },
+      { ronda: 3, receptor: BETO, monto: 30_0000000n, aportes: 3 },
+    ]);
+  });
+
+  it("detecta cuando una ronda se cerró entre dos lecturas", () => {
+    const r0 = tanda({ ronda: 0, aQuienToca: CAROL });
+    const r1 = tanda({ ronda: 1, aQuienToca: ANA });
+    const fin = tanda({ estado: "Terminada", ronda: 3, aQuienToca: null });
+
+    expect(entregaDeRondaCerrada(null, r0)).toBeNull();
+    expect(entregaDeRondaCerrada(r0, r0)).toBeNull();
+    expect(entregaDeRondaCerrada(r0, r1)).toEqual({
+      ronda: 1,
+      receptor: CAROL,
+      monto: 30_0000000n,
+      aportes: 3,
+    });
+    expect(entregaDeRondaCerrada(tanda({ ronda: 2 }), fin)).toEqual({
+      ronda: 3,
+      receptor: BETO,
+      monto: 30_0000000n,
+      aportes: 3,
+    });
   });
 });
 

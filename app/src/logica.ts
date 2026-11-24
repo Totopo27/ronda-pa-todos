@@ -83,6 +83,39 @@ export function quienesCobraron(r: Resumen): string[] {
   return r.orden.slice(0, Math.max(0, r.ronda));
 }
 
+export interface EntregaPozo {
+  ronda: number;
+  receptor: string;
+  monto: bigint;
+  aportes: number;
+}
+
+/** Suma del pozo completo de una ronda (`cuota × cupo`). */
+export function montoPozo(r: Pick<Resumen, "aporte" | "cupo">): bigint {
+  return r.aporte * BigInt(Math.max(0, r.cupo));
+}
+
+/** Rondas completadas cuyo pozo ya se transfirió al miembro correspondiente. */
+export function entregasRealizadas(r: Resumen): EntregaPozo[] {
+  const monto = montoPozo(r);
+  return quienesCobraron(r).map((receptor, i) => ({
+    ronda: i + 1,
+    receptor,
+    monto,
+    aportes: r.cupo,
+  }));
+}
+
+/** Detecta si la tanda avanzó de ronda respecto a la lectura anterior. */
+export function entregaDeRondaCerrada(
+  anterior: Resumen | null,
+  actual: Resumen,
+): EntregaPozo | null {
+  if (!anterior || actual.ronda <= anterior.ronda) return null;
+  const entregas = entregasRealizadas(actual);
+  return entregas[entregas.length - 1] ?? null;
+}
+
 /** Segundos que le quedan a la ronda en curso. Nunca negativo; 0 si no arrancó. */
 export function segundosRestantes(r: Resumen, ahoraSegundos: number): number {
   if (r.inicio === 0n) return 0;

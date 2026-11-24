@@ -389,6 +389,63 @@ button.principal:hover:not(:disabled) {
   color: var(--acento);
 }
 
+.entregas {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entregas li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--hundido);
+  font-size: 0.9rem;
+}
+
+.entregas li.reciente {
+  border-color: rgb(63 185 80 / 45%);
+  background: rgb(63 185 80 / 10%);
+}
+
+.entregas .num {
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.entregas .detalle {
+  flex: 1 1 14rem;
+}
+
+.entregas .marca-ok {
+  margin-left: auto;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ok);
+}
+
+.miembros .estado-pago {
+  margin-left: 0.35rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.miembros .estado-pago.pago {
+  color: var(--ok);
+}
+
+.miembros .estado-pago.pendiente {
+  color: var(--tenue);
+}
+
 /* --- Acción ------------------------------------------------------------ */
 
 .accion .motivo {

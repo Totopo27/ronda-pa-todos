@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { cuentaFondeada } from "./cadena";
 
 const DIRECCION = "GCOLRMYZREQF76K5JO4ON62LWC6OY4VJABDNTOOLEFP7GVHP573E2NWH";
 
@@ -10,7 +11,6 @@ describe("cadena: fondos de la cuenta", () => {
       "fetch",
       vi.fn(async () => new Response("", { status: 404 })),
     );
-    const { cuentaFondeada } = await import("./cadena");
     await expect(cuentaFondeada(DIRECCION)).resolves.toBe(false);
   });
 
@@ -19,7 +19,6 @@ describe("cadena: fondos de la cuenta", () => {
       "fetch",
       vi.fn(async () => new Response("{}", { status: 200 })),
     );
-    const { cuentaFondeada } = await import("./cadena");
     await expect(cuentaFondeada(DIRECCION)).resolves.toBe(true);
   });
 
@@ -30,7 +29,6 @@ describe("cadena: fondos de la cuenta", () => {
         throw new Error("red caída");
       }),
     );
-    const { cuentaFondeada } = await import("./cadena");
     await expect(cuentaFondeada(DIRECCION)).resolves.toBeNull();
   });
 });
