@@ -116,7 +116,9 @@ describe("sugerirAccion", () => {
   });
 
   it("pide aportar dentro del plazo", () => {
-    expect(sugerirAccion(tanda(), ANA, 1200).accion).toBe("aportar");
+    const r = sugerirAccion(tanda(), ANA, 1200);
+    expect(r.accion).toBe("aportar");
+    expect(r.motivo).toMatch(/falta tu aporte/i);
   });
 
   it("avisa cuando se aporta con el plazo vencido", () => {

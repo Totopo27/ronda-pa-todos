@@ -170,7 +170,7 @@ export function sugerirAccion(
         "Si aportas ahora y la ronda no se completa, recuperarás tu aporte con Reclamar.",
     };
   }
-  return { accion: "aportar", motivo: "Te toca aportar la cuota de esta ronda." };
+  return { accion: "aportar", motivo: "Falta tu aporte de esta ronda." };
 }
 
 /** `15000000n` con 7 decimales es "1.5", no "1.5000000". */
