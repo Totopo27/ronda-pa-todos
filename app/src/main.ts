@@ -10,6 +10,7 @@ import {
   type Resumen,
 } from "./logica";
 import {
+  cuentaFondeada,
   ejecutar,
   enlaceContrato,
   enlaceTransaccion,
@@ -52,6 +53,7 @@ interface Estado {
   errorAccion: string | null;
   avisoRed: string | null;
   avisoBilletera: string | null;
+  fondeada: boolean | null;
   ultimaTx: string | null;
   ocupado: boolean;
 }
@@ -65,6 +67,7 @@ const ui: Estado = {
   errorAccion: null,
   avisoRed: null,
   avisoBilletera: null,
+  fondeada: null,
   ultimaTx: null,
   ocupado: false,
 };
@@ -122,12 +125,21 @@ async function comprobarRed(): Promise<void> {
   }
 }
 
+/**
+ * Friendbot rechaza con 400 las cuentas que ya tienen saldo, así que el enlace
+ * solo se muestra cuando la cuenta todavía no existe en testnet.
+ */
+async function comprobarFondos(): Promise<void> {
+  ui.fondeada = ui.yo ? await cuentaFondeada(ui.yo) : null;
+}
+
 async function conectarBilletera(): Promise<void> {
   ui.errorAccion = null;
   ui.avisoBilletera = null;
   try {
     ui.yo = await conectar();
     await comprobarRed();
+    await comprobarFondos();
   } catch (fallo) {
     ui.errorAccion = mensajeDe(fallo);
   }
@@ -159,6 +171,7 @@ async function cambiarBilletera(): Promise<void> {
   }
   ui.yo = nueva;
   await comprobarRed();
+  await comprobarFondos();
   pintar();
   await refrescar();
 }
@@ -371,7 +384,7 @@ function pintarMensajes(): void {
       `<p class="exito">Transacción confirmada. <a href="${enlaceTransaccion(ui.ultimaTx)}" target="_blank" rel="noreferrer noopener">Verla en Stellar Expert</a></p>`,
     );
   }
-  if (ui.yo) {
+  if (ui.yo && ui.fondeada !== true) {
     partes.push(
       `<p class="fondos">¿Necesitas XLM de prueba? <a href="${enlaceFriendbot(ui.yo)}" target="_blank" rel="noreferrer noopener">Fondear esta cuenta con Friendbot</a>.</p>`,
     );
@@ -442,6 +455,7 @@ async function arrancar(): Promise<void> {
   if (guardada) {
     ui.yo = guardada;
     await comprobarRed();
+    await comprobarFondos();
     pintar();
   }
 

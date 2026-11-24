@@ -3,8 +3,26 @@ import { normalizarResumen, type Accion, type Resumen } from "./logica";
 
 export const RPC_TESTNET = "https://soroban-testnet.stellar.org";
 export const PASSHRASE_TESTNET = "Test SDF Network ; September 2015";
+export const HORIZON_TESTNET = "https://horizon-testnet.stellar.org";
 
 export type Firmador = (xdr: string) => Promise<string>;
+
+/**
+ * ¿La cuenta ya existe en testnet? Friendbot solo fondea cuentas que no llegan
+ * al saldo inicial, así que el enlace solo tiene sentido cuando no existe.
+ * `null` = no se pudo averiguar (red o Horizon caídos): mejor no afirmar nada.
+ */
+export async function cuentaFondeada(direccion: string): Promise<boolean | null> {
+  try {
+    const respuesta = await fetch(
+      `${HORIZON_TESTNET}/accounts/${encodeURIComponent(direccion)}`,
+    );
+    if (respuesta.status === 404) return false;
+    return respuesta.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Nombres de los errores del contrato, para que el SDK los pueda resolver. */
 const ERRORES: Record<number, { message: string }> = {
@@ -76,9 +94,7 @@ function cliente<T extends object>(
 export interface Token {
   decimales: number;
   simbolo: string;
-}
-
-const tokens = new Map<string, Promise<Token>>();
+}const tokens = new Map<string, Promise<Token>>();
 
 /** Los decimales y el símbolo se leen del propio token, no se asumen. */
 export function leerToken(tokenId: string): Promise<Token> {
