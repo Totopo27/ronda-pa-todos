@@ -153,6 +153,18 @@ button.principal:hover:not(:disabled) {
   display: none;
 }
 
+.billetera:not(:empty) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.billetera button {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
 .conectado code {
   color: var(--texto);
 }

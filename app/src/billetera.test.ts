@@ -4,6 +4,7 @@ const kit = vi.hoisted(() => ({
   init: vi.fn(),
   authModal: vi.fn(),
   getAddress: vi.fn(),
+  fetchAddress: vi.fn(),
   getNetwork: vi.fn(),
   signTransaction: vi.fn(),
 }));
@@ -35,5 +36,24 @@ describe("billetera: errores de la wallet", () => {
     const { exigirTestnet } = await import("./billetera");
     kit.getNetwork.mockRejectedValueOnce(SIN_RED_WC);
     await expect(exigirTestnet()).resolves.toBeUndefined();
+  });
+});
+
+describe("billetera: cambiar de dirección", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("vuelve a preguntar la dirección a la wallet en vez de la guardada", async () => {
+    const { refrescarDireccion } = await import("./billetera");
+    kit.getAddress.mockResolvedValue({ address: "GVIEJA" });
+    kit.fetchAddress.mockResolvedValueOnce({ address: "GNUEVA" });
+    await expect(refrescarDireccion()).resolves.toBe("GNUEVA");
+    expect(kit.fetchAddress).toHaveBeenCalledTimes(1);
+    expect(kit.getAddress).not.toHaveBeenCalled();
+  });
+
+  it("devuelve null si la wallet no responde sin abrir su ventana", async () => {
+    const { refrescarDireccion } = await import("./billetera");
+    kit.fetchAddress.mockRejectedValueOnce({ code: -1, message: "No wallet has been connected." });
+    await expect(refrescarDireccion()).resolves.toBeNull();
   });
 });

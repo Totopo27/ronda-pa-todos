@@ -17,7 +17,14 @@ import {
   leerToken,
   type Token,
 } from "./cadena";
-import { ErrorBilletera, conectar, cuentaAutorizada, exigirTestnet, firmar } from "./billetera";
+import {
+  ErrorBilletera,
+  conectar,
+  cuentaAutorizada,
+  exigirTestnet,
+  firmar,
+  refrescarDireccion,
+} from "./billetera";
 
 /** Cuenta atrás del refresco y de la cuenta regresiva. */
 const REFRESCO_MS = 5_000;
@@ -44,6 +51,7 @@ interface Estado {
   errorCarga: string | null;
   errorAccion: string | null;
   avisoRed: string | null;
+  avisoBilletera: string | null;
   ultimaTx: string | null;
   ocupado: boolean;
 }
@@ -56,6 +64,7 @@ const ui: Estado = {
   errorCarga: null,
   errorAccion: null,
   avisoRed: null,
+  avisoBilletera: null,
   ultimaTx: null,
   ocupado: false,
 };
@@ -115,12 +124,41 @@ async function comprobarRed(): Promise<void> {
 
 async function conectarBilletera(): Promise<void> {
   ui.errorAccion = null;
+  ui.avisoBilletera = null;
   try {
     ui.yo = await conectar();
     await comprobarRed();
   } catch (fallo) {
     ui.errorAccion = mensajeDe(fallo);
   }
+  pintar();
+  await refrescar();
+}
+
+/**
+ * Vuelve a preguntarle la dirección a la wallet.
+ *
+ * La app guarda la dirección en memoria y el kit la persiste en localStorage, así
+ * que cambiar de cuenta dentro de la misma wallet no rompe nada por sí solo: hay
+ * que pedirla de nuevo. Si la wallet no responde sin abrir su ventana, caemos al
+ * selector, que siempre funciona.
+ */
+async function cambiarBilletera(): Promise<void> {
+  ui.errorAccion = null;
+  ui.avisoBilletera = null;
+  const nueva = await refrescarDireccion();
+  if (!nueva) {
+    await conectarBilletera();
+    return;
+  }
+  if (nueva === ui.yo) {
+    ui.avisoBilletera =
+      "La wallet sigue entregando la misma dirección. Cambiala dentro de la wallet y volvé a intentar.";
+    pintarMensajes();
+    return;
+  }
+  ui.yo = nueva;
+  await comprobarRed();
   pintar();
   await refrescar();
 }
@@ -315,7 +353,8 @@ function pintarBilletera(): void {
   const contenedor = document.querySelector<HTMLDivElement>("#billetera");
   if (!contenedor) return;
   contenedor.innerHTML = ui.yo
-    ? `<span class="conectado">Conectado como <code>${esc(acortarDireccion(ui.yo))}</code></span>`
+    ? `<span class="conectado">Conectado como <code>${esc(acortarDireccion(ui.yo))}</code></span>
+       <button data-accion="cambiar">Cambiar</button>`
     : `<button data-accion="conectar">Conectar wallet</button>`;
 }
 
@@ -324,6 +363,7 @@ function pintarMensajes(): void {
   if (!contenedor) return;
   const partes: string[] = [];
   if (ui.avisoRed) partes.push(`<p class="aviso">${esc(ui.avisoRed)}</p>`);
+  if (ui.avisoBilletera) partes.push(`<p class="aviso">${esc(ui.avisoBilletera)}</p>`);
   if (ui.errorAccion) partes.push(`<p class="error">${esc(ui.errorAccion)}</p>`);
   if (ui.errorCarga) partes.push(`<p class="error">${esc(ui.errorCarga)}</p>`);
   if (ui.ultimaTx) {
@@ -390,6 +430,7 @@ async function arrancar(): Promise<void> {
     if (!objetivo || objetivo.hasAttribute("disabled")) return;
     const accion = objetivo.dataset.accion;
     if (accion === "conectar") void conectarBilletera();
+    else if (accion === "cambiar") void cambiarBilletera();
     else if (accion === "unirse" || accion === "aportar" || accion === "reclamar") {
       void actuar(accion);
     }

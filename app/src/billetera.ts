@@ -88,6 +88,24 @@ export async function cuentaAutorizada(): Promise<string | null> {
   }
 }
 
+/**
+ * Dirección que la wallet tiene activa ahora mismo.
+ *
+ * `getAddress()` devuelve la que el kit guardó en `localStorage` la última vez;
+ * `fetchAddress()` se la vuelve a pedir a la wallet. Es la única forma de notar
+ * que el usuario cambió de cuenta dentro de la misma wallet.
+ * Devuelve null si la wallet no contesta sin abrir su ventana.
+ */
+export async function refrescarDireccion(): Promise<string | null> {
+  try {
+    await billeteraLista;
+    const { address } = await StellarWalletsKit.fetchAddress();
+    return address || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Red configurada en la wallet elegida. */
 export async function redActual(): Promise<{ red: string; passphrase: string }> {
   try {
