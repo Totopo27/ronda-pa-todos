@@ -16,8 +16,9 @@ sirve para cualquier tanda.
 - Muestra cuántos lugares van ocupados, el orden de cobro sorteado y la cuenta regresiva del
   plazo.
 - Traduce los 13 errores del contrato a una frase en español.
-- Abre un selector de wallets con **Stellar Wallets Kit**. Admite Varial (antes Freighter) y,
-  cuando se configura un Project ID de Reown, WalletConnect para firmar desde móvil.
+- Conecta con **Varial** (antes Freighter, mediante `@stellar/freighter-api`) y, cuando se configura
+  un Project ID de Reown, ofrece un selector con **WalletConnect** (`@walletconnect/sign-client`
+  y código QR nativo) para firmar desde móvil.
 - El cliente nunca pide ni manipula llaves privadas: envía el XDR a la wallet elegida y recibe
   el XDR firmado. Si esa wallet está en otra red, bloquea las escrituras.
 - Ofrece un enlace de Friendbot para fondear directamente la cuenta conectada con XLM de prueba.
@@ -147,7 +148,7 @@ app/
 │   ├── logica.ts         lógica pura: errores, acciones, formato, cuenta regresiva
 │   ├── logica.test.ts    pruebas de la lógica pura
 │   ├── cadena.ts         Soroban RPC + cliente del contrato
-│   ├── billetera.ts      Stellar Wallets Kit + WalletConnect
+│   ├── billetera.ts      Varial/Freighter (@stellar/freighter-api) + WalletConnect QR
 │   ├── main.ts           pintado del DOM y flujo de acciones
 │   └── estilo.css        estilos
 ├── smoke.mjs             comprobación de lecturas de un contrato desplegado

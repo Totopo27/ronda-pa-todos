@@ -387,9 +387,10 @@ stellar contract invoke --id ronda-pa-todos --source-account <cualquiera> --netw
 ### La interfaz para el grupo
 
 Hay una interfaz estática en `app/` para que cada amigo firme con su propia wallet, sin tocar
-la CLI. Se abre con `?contrato=EL_ID` y no necesita backend. Usa Stellar Wallets Kit: conserva
-Varial (antes Freighter) y habilita WalletConnect cuando `VITE_WALLETCONNECT_PROJECT_ID` tiene
-un Project ID de Reown. La interfaz también enlaza Friendbot con la cuenta conectada para que
+la CLI. Se abre con `?contrato=EL_ID` y no necesita backend. Conecta directamente con Varial
+(antes Freighter, vía `@stellar/freighter-api`) y habilita WalletConnect por QR cuando
+`VITE_WALLETCONNECT_PROJECT_ID` tiene un Project ID de Reown. La interfaz también enlaza
+Friendbot con la cuenta conectada para que cada participante pueda pedir XLM de testnet.
 cada participante pueda pedir XLM de testnet.
 
 ```sh

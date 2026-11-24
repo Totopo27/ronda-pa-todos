@@ -448,3 +448,50 @@ footer {
     flex-direction: column;
   }
 }
+
+/* --- Modal de billetera ------------------------------------------------ */
+
+dialog.modal-billetera {
+  max-width: 24rem;
+  width: calc(100% - 2rem);
+  padding: 1.25rem;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--texto);
+}
+
+dialog.modal-billetera::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+
+.modal-opciones {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.modal-opciones button {
+  width: 100%;
+  text-align: left;
+}
+
+.modal-qr {
+  max-width: 16rem;
+  margin: 0 auto;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.modal-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.modal-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
