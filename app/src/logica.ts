@@ -132,8 +132,8 @@ export function sugerirAccion(
   yo: string | null,
   ahoraSegundos: number,
 ): Sugerencia {
-  if (!r) return { accion: null, motivo: "Leyendo la tanda en testnet…" };
-  if (!yo) return { accion: null, motivo: "Conecta tu billetera para participar." };
+  if (!r) return { accion: null, motivo: "Leyendo la ronda en testnet…" };
+  if (!yo) return { accion: null, motivo: "Conecta tu wallet para participar." };
 
   const estado = r.estado;
 
@@ -146,39 +146,39 @@ export function sugerirAccion(
         accion: null,
         motivo:
           faltan === 1
-            ? "Ya estás dentro. Falta 1 firma para que se llene el cupo y arranque la tanda."
-            : `Ya estás dentro. Faltan ${faltan} firmas para que se llene el cupo y arranque la tanda.`,
+            ? "Ya estás dentro. Falta 1 firma para que se llene el cupo y arranque la ronda."
+            : `Ya estás dentro. Faltan ${faltan} firmas para que se llene el cupo y arranque la ronda.`,
       };
     }
     return {
       accion: "unirse",
       motivo:
-        "Firma tu inscripción y ocupa un lugar. Cuando se llene el cupo, se sortea el orden de cobro.",
+        "Firma tu inscripción y ocupa un campo. Cuando se llene el cupo, se rifa el orden de cobro.",
     };
   }
 
   // De aquí en adelante sí hay lista cerrada: el cupo ya se llenó.
   if (!r.miembros.includes(yo)) {
-    return { accion: null, motivo: "Tu cuenta no está entre los miembros de esta tanda." };
+    return { accion: null, motivo: "Tu cuenta no está entre los miembros de esta ronda." };
   }
 
   const vigente = segundosRestantes(r, ahoraSegundos) > 0;
 
   if (estado === "Abortada") {
     if (r.yaDevuelto) {
-      return { accion: null, motivo: "La tanda se abortó y ya recuperaste tu aporte." };
+      return { accion: null, motivo: "La ronda se abortó y ya recuperaste tu aporte." };
     }
     if (r.haPagado) {
-      return { accion: "reclamar", motivo: "La tanda se abortó. Recupera tu aporte." };
+      return { accion: "reclamar", motivo: "La ronda se abortó. Recupera tu aporte." };
     }
     return {
       accion: null,
-      motivo: "La tanda se abortó. No aportaste esta ronda, así que no hay nada que reclamar.",
+      motivo: "La ronda se abortó. No aportaste este turno, así que no hay nada que reclamar.",
     };
   }
 
   if (estado === "Terminada") {
-    return { accion: null, motivo: "La tanda terminó: todos cobraron su pozo una vez." };
+    return { accion: null, motivo: "La ronda terminó: todos cobraron su buchaca una vez." };
   }
 
   // Activa.
@@ -186,24 +186,91 @@ export function sugerirAccion(
     if (!vigente) {
       return {
         accion: "reclamar",
-        motivo: "El plazo venció y la ronda no se completó. Puedes recuperar tu aporte.",
-        aviso: "Si reclamas, la tanda se aborta para todos y nadie más cobra su pozo.",
+        motivo: "El plazo venció y no se juntó la buchaca de este turno. Puedes recuperar tu aporte.",
+        aviso: "Si reclamas, la ronda se aborta para todos y nadie más cobra su buchaca.",
       };
     }
     return {
       accion: null,
-      motivo: "Ya aportaste esta ronda. Esperando a los demás.",
+      motivo: "Ya aportaste este turno. Esperando a los demás.",
     };
   }
   if (!vigente) {
     return {
       accion: "aportar",
-      motivo: "El plazo de esta ronda ya venció, pero nadie ha reclamado todavía.",
+      motivo: "El plazo de este turno ya venció, pero nadie ha reclamado todavía.",
       aviso:
-        "Si aportas ahora y la ronda no se completa, recuperarás tu aporte con Reclamar.",
+        "Si aportas ahora y el turno no se completa, recuperarás tu aporte con Reclamar.",
     };
   }
-  return { accion: "aportar", motivo: "Falta tu aporte de esta ronda." };
+  return { accion: "aportar", motivo: "Falta tu aporte de este turno." };
+}
+
+export const DECIMALES_XLM = 7;
+export const MIN_CUPO = 2;
+export const MAX_CUPO = 50;
+export const MIN_DURACION = 60n;
+export const MAX_DURACION = 1_209_600n;
+const MAX_SAC_I64 = 9_223_372_036_854_775_807n;
+
+export interface ParametrosNuevaRonda {
+  cupo: number;
+  aporte: bigint;
+  duracion: bigint;
+}
+
+/** Convierte un monto decimal en texto (p. ej. "10.5" o "10,5") a stroops enteros. */
+export function parsearImporte(texto: string, decimales = DECIMALES_XLM): bigint | null {
+  const limpio = texto.trim();
+  if (!/^\d+(?:[.,]\d+)?$/.test(limpio)) return null;
+  const [entera, fraccion = ""] = limpio.split(/[.,]/);
+  if (fraccion.length > decimales) return null;
+  const valor = BigInt(entera) * 10n ** BigInt(decimales) + BigInt(fraccion.padEnd(decimales, "0"));
+  return valor > 0n ? valor : null;
+}
+
+/** Valida cupo, cuota y plazo antes de construir la transacción de despliegue. */
+export function validarNuevaRonda(entrada: {
+  cupo: string;
+  cuota: string;
+  duracion: string;
+}): { ok: true; datos: ParametrosNuevaRonda } | { ok: false; error: string } {
+  const cupoTxt = entrada.cupo.trim();
+  if (!/^\d+$/.test(cupoTxt)) {
+    return { ok: false, error: "El cupo debe ser un número entero entre 2 y 50 campos." };
+  }
+  const cupo = Number(cupoTxt);
+  if (!Number.isSafeInteger(cupo) || cupo < MIN_CUPO || cupo > MAX_CUPO) {
+    return { ok: false, error: "El cupo debe estar entre 2 y 50 campos." };
+  }
+
+  const aporte = parsearImporte(entrada.cuota, DECIMALES_XLM);
+  if (aporte === null) {
+    return {
+      ok: false,
+      error: "La cuota debe ser un monto de XLM mayor que cero (hasta 7 decimales).",
+    };
+  }
+  if (aporte * BigInt(cupo) > MAX_SAC_I64) {
+    return {
+      ok: false,
+      error: "La buchaca total (cuota × cupo) excede el límite máximo del token.",
+    };
+  }
+
+  const durTxt = entrada.duracion.trim();
+  if (!/^\d+$/.test(durTxt)) {
+    return { ok: false, error: "El plazo por turno debe ser un número entero en segundos." };
+  }
+  const duracion = BigInt(durTxt);
+  if (duracion < MIN_DURACION || duracion > MAX_DURACION) {
+    return {
+      ok: false,
+      error: "El plazo por turno debe estar entre 60 segundos y 14 días (1 209 600 s).",
+    };
+  }
+
+  return { ok: true, datos: { cupo, aporte, duracion } };
 }
 
 /** `15000000n` con 7 decimales es "1.5", no "1.5000000". */
@@ -231,19 +298,19 @@ export function enlaceFriendbot(direccion: string): string {
 }
 
 const ERRORES: Record<number, string> = {
-  1: "El cupo de la tanda tiene que ser al menos 2 (una tanda de una persona no es una tanda).",
+  1: "El cupo de la ronda tiene que ser al menos 2 (una ronda de una persona no es una ronda).",
   2: "La cuota tiene que ser mayor que cero.",
   3: "El plazo tiene que ser mayor que cero.",
-  4: "Tu cuenta no está entre los miembros de esta tanda.",
-  5: "Esa cuenta ya ocupó un lugar en esta tanda.",
-  6: "La inscripción ya cerró: el cupo está lleno y la tanda está en marcha.",
-  7: "La tanda todavía no arrancó: faltan firmas de inscripción.",
-  8: "Esa cuenta ya aportó esta ronda.",
-  9: "La tanda ya terminó o se abortó; no admite más aportes.",
-  10: "Todavía no venció el plazo de esta ronda.",
-  11: "Esa cuenta no aportó la ronda en curso, así que no tiene nada que reclamar.",
+  4: "Tu cuenta no está entre los miembros de esta ronda.",
+  5: "Esa cuenta ya ocupó un campo en esta ronda.",
+  6: "La inscripción ya cerró: el cupo está lleno y la ronda está en marcha.",
+  7: "La ronda todavía no arrancó: faltan firmas de inscripción.",
+  8: "Esa cuenta ya aportó este turno.",
+  9: "La ronda ya terminó o se abortó; no admite más aportes.",
+  10: "Todavía no venció el plazo de este turno.",
+  11: "Esa cuenta no aportó el turno en curso, así que no tiene nada que reclamar.",
   12: "Ese aporte ya fue devuelto.",
-  13: "El contrato no tiene configuración. ¿Seguro que ese ID es una tanda?",
+  13: "El contrato no tiene configuración. ¿Seguro que ese ID es una ronda?",
 };
 
 /** El host devuelve `Error(Contract, #N)` dentro de un mensaje largo. */

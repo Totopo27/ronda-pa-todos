@@ -172,7 +172,7 @@ async function obtenerClienteWC(): Promise<ClientWC | null> {
         projectId: PROJECT_ID_WC,
         metadata: {
           name: "RondaPa' Todos",
-          description: "Tanda de ahorro circular sobre Stellar testnet",
+          description: "Ronda de ahorro circular sobre Stellar testnet",
           url,
           icons: icono ? [icono] : [],
         },

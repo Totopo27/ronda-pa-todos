@@ -1,9 +1,25 @@
-import { contract } from "@stellar/stellar-sdk";
-import { normalizarResumen, type Accion, type Resumen } from "./logica";
+import {
+  Address,
+  Asset,
+  BASE_FEE,
+  Operation,
+  TransactionBuilder,
+  contract,
+  nativeToScVal,
+  rpc,
+} from "@stellar/stellar-sdk";
+import {
+  normalizarResumen,
+  type Accion,
+  type ParametrosNuevaRonda,
+  type Resumen,
+} from "./logica";
 
 export const RPC_TESTNET = "https://soroban-testnet.stellar.org";
 export const PASSHRASE_TESTNET = "Test SDF Network ; September 2015";
 export const HORIZON_TESTNET = "https://horizon-testnet.stellar.org";
+export const WASM_HASH_RONDA =
+  "8bd7c0717fb5323233d18edbd7b1b7c37bc3d6d5e17e7aff643c7270e37849be";
 
 export type Firmador = (xdr: string) => Promise<string>;
 
@@ -167,6 +183,92 @@ export async function ejecutar(
     hash: enviada.sendTransactionResponse?.hash ?? null,
     resultado: enviada.result,
   };
+}
+
+export interface RondaCreada {
+  contratoId: string;
+  hash: string;
+}
+
+function hexABytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+/** Despliega una ronda nueva y vacía en testnet usando el Wasm ya publicado. */
+export async function crearRonda(
+  datos: ParametrosNuevaRonda,
+  yo: string,
+  firmar: Firmador,
+): Promise<RondaCreada> {
+  const servidor = new rpc.Server(RPC_TESTNET);
+  let cuenta;
+  try {
+    cuenta = await servidor.getAccount(yo);
+  } catch (fallo) {
+    const texto = String((fallo as Error)?.message ?? fallo);
+    if (/404|not found/i.test(texto)) {
+      throw new Error(
+        "Tu cuenta todavía no existe en testnet. Fondéala con Friendbot arriba y vuelve a intentar.",
+      );
+    }
+    throw fallo;
+  }
+
+  const tokenSac = Asset.native().contractId(PASSHRASE_TESTNET);
+  const tx = new TransactionBuilder(cuenta, {
+    fee: BASE_FEE,
+    networkPassphrase: PASSHRASE_TESTNET,
+  })
+    .addOperation(
+      Operation.createCustomContract({
+        address: new Address(yo),
+        wasmHash: hexABytes(WASM_HASH_RONDA),
+        constructorArgs: [
+          new Address(tokenSac).toScVal(),
+          nativeToScVal(datos.aporte, { type: "i128" }),
+          nativeToScVal(datos.duracion, { type: "u64" }),
+          nativeToScVal(datos.cupo, { type: "u32" }),
+        ],
+      }),
+    )
+    .setTimeout(60)
+    .build();
+
+  const sim = await servidor.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(sim)) {
+    throw new Error(sim.error);
+  }
+  if (rpc.Api.isSimulationRestore(sim)) {
+    throw new Error("El código del contrato en testnet expiró y necesita restaurarse.");
+  }
+  if (!rpc.Api.isSimulationSuccess(sim) || !sim.result) {
+    throw new Error("No se pudo simular la creación de la ronda.");
+  }
+
+  const idSimulado = Address.fromScVal(sim.result.retval).toString();
+  const preparada = rpc.assembleTransaction(tx, sim).build();
+  const xdrFirmado = await firmar(preparada.toXDR());
+  const firmada = TransactionBuilder.fromXDR(xdrFirmado, PASSHRASE_TESTNET);
+
+  const envio = await servidor.sendTransaction(firmada);
+  if (envio.status === "ERROR") {
+    throw new Error("La red rechazó la transacción al crear la ronda.");
+  }
+
+  const final = await servidor.pollTransaction(envio.hash, { attempts: 30 });
+  if (final.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
+    throw new Error("No se pudo confirmar la creación de la ronda en testnet.");
+  }
+
+  const contratoId = final.returnValue
+    ? Address.fromScVal(final.returnValue).toString()
+    : idSimulado;
+
+  return { contratoId, hash: envio.hash };
 }
 
 export function enlaceContrato(contratoId: string): string {

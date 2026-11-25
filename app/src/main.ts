@@ -9,11 +9,13 @@ import {
   montoPozo,
   segundosRestantes,
   sugerirAccion,
+  validarNuevaRonda,
   type Accion,
   type EntregaPozo,
   type Resumen,
 } from "./logica";
 import {
+  crearRonda,
   cuentaFondeada,
   ejecutar,
   enlaceContrato,
@@ -63,6 +65,12 @@ interface Estado {
   fondeada: boolean | null;
   ultimaTx: string | null;
   ocupado: boolean;
+  creando: boolean;
+  formCrear: {
+    cupo: string;
+    cuota: string;
+    duracion: string;
+  };
 }
 
 const ui: Estado = {
@@ -79,6 +87,12 @@ const ui: Estado = {
   fondeada: null,
   ultimaTx: null,
   ocupado: false,
+  creando: false,
+  formCrear: {
+    cupo: "3",
+    cuota: "10",
+    duracion: "600",
+  },
 };
 
 let leyendo = false;
@@ -187,7 +201,7 @@ async function cambiarBilletera(): Promise<void> {
   }
   if (nueva === ui.yo) {
     ui.avisoBilletera =
-      "La wallet sigue entregando la misma dirección. Cambiala dentro de la wallet y volvé a intentar.";
+      "La wallet sigue entregando la misma dirección. Cámbiala dentro de la wallet y vuelve a intentar.";
     pintarMensajes();
     return;
   }
@@ -222,6 +236,37 @@ async function actuar(accion: Accion): Promise<void> {
   }
 }
 
+async function crearNuevaRonda(): Promise<void> {
+  if (!ui.yo || ui.creando) return;
+
+  const validacion = validarNuevaRonda(ui.formCrear);
+  if (!validacion.ok) {
+    ui.errorAccion = validacion.error;
+    pintarMensajes();
+    return;
+  }
+
+  const cuenta = ui.yo;
+  ui.creando = true;
+  ui.errorAccion = null;
+  ui.ultimaTx = null;
+  pintar();
+
+  try {
+    await exigirTestnet();
+    ui.avisoRed = null;
+    const creada = await crearRonda(validacion.datos, cuenta, (xdr) => firmar(xdr, cuenta));
+    const destino = new URL(location.href);
+    destino.searchParams.set("contrato", creada.contratoId);
+    location.href = destino.toString();
+  } catch (fallo) {
+    ui.errorAccion = mensajeDe(fallo);
+    if (fallo instanceof ErrorBilletera && fallo.motivo === "red") ui.avisoRed = fallo.message;
+    ui.creando = false;
+    pintar();
+  }
+}
+
 // --- Pintado ------------------------------------------------------------
 
 function textoMonto(stroops: bigint): string {
@@ -238,17 +283,17 @@ function textoCuenta(r: Resumen): string {
     return "La cuenta regresiva empieza cuando se llena el cupo.";
   }
   if (r.estado === "Terminada") {
-    return "La tanda terminó: todos cobraron su pozo exactamente una vez.";
+    return "La ronda terminó: todos cobraron su buchaca exactamente una vez.";
   }
   if (r.estado === "Abortada") {
-    return "La tanda se abortó. Quien aportó su cuota de esta ronda puede recuperarla.";
+    return "La ronda se abortó. Quien aportó su cuota de este turno puede recuperarla.";
   }
   const ronda = Math.min(r.ronda + 1, r.cupo);
   const restante = segundosRestantes(r, ahora());
   if (restante > 0) {
-    return `Quedan ${formatearDuracion(restante)} para que cierre la ronda ${ronda} de ${r.cupo}.`;
+    return `Quedan ${formatearDuracion(restante)} para que cierre el turno ${ronda} de ${r.cupo}.`;
   }
-  return `El plazo de la ronda ${ronda} ya venció. Quien aportó puede recuperar su dinero; quien no aportó ya no cobrará su pozo.`;
+  return `El plazo del turno ${ronda} ya venció. Quien aportó puede recuperar su plata; quien no aportó ya no cobrará su buchaca.`;
 }
 
 function panelTanda(r: Resumen): string {
@@ -260,23 +305,27 @@ function panelTanda(r: Resumen): string {
   return `
     <section class="panel">
       <div class="panel-cabecera">
-        <h2>La tanda</h2>
+        <h2>La ronda</h2>
         <span class="pill ${esc(r.estado.toLowerCase())}">${esc(MOTIVO_ESTADO[r.estado] ?? r.estado)}</span>
       </div>
       <dl class="datos">
         <div><dt>Cuota</dt><dd>${esc(textoCuota(r))}</dd></div>
-        <div><dt>Pozo por ronda</dt><dd>${esc(textoMonto(montoPozo(r)))}</dd></div>
-        <div><dt>Plazo por ronda</dt><dd>${esc(formatearDuracion(Number(r.duracion)))}</dd></div>
-        <div><dt>Ronda</dt><dd>${esc(ronda)}</dd></div>
-        <div><dt>Lugares</dt><dd>${r.inscritos} de ${r.cupo} ocupados</dd></div>
+        <div><dt>Buchaca por turno</dt><dd>${esc(textoMonto(montoPozo(r)))}</dd></div>
+        <div><dt>Plazo por turno</dt><dd>${esc(formatearDuracion(Number(r.duracion)))}</dd></div>
+        <div><dt>Turno</dt><dd>${esc(ronda)}</dd></div>
+        <div><dt>Campos</dt><dd>${r.inscritos} de ${r.cupo} ocupados</dd></div>
       </dl>
       <p class="cuenta" id="cuenta">${esc(textoCuenta(r))}</p>
-      <p class="pie-panel">
-        Contrato
-        <a href="${enlaceContrato(ui.contrato)}" target="_blank" rel="noreferrer noopener"
-          ><code>${esc(acortarDireccion(ui.contrato))}</code></a
-        >
-      </p>
+      <div class="pie-panel acciones-ronda">
+        <span>
+          Contrato
+          <a href="${enlaceContrato(ui.contrato)}" target="_blank" rel="noreferrer noopener"
+            ><code>${esc(acortarDireccion(ui.contrato))}</code></a
+          >
+        </span>
+        <button type="button" class="secundario" data-accion="copiar-enlace">Copiar enlace</button>
+        <a href="./">Crear otra ronda</a>
+      </div>
     </section>
     ${panelInscripcion(r)}
     ${panelAportesRonda(r)}
@@ -310,10 +359,10 @@ function panelAportesRonda(r: Resumen): string {
 
   return `
     <section class="panel">
-      <h2>Aportes de la ronda ${rondaActual}</h2>
+      <h2>Aportes del turno ${rondaActual}</h2>
       ${progreso}
       <p class="pie-panel">
-        Al reunir los ${r.cupo} aportes, el contrato envía de inmediato el pozo completo (${esc(textoMonto(pozo))}) a ${destino}.
+        Al reunir los ${r.cupo} aportes, el contrato envía de inmediato la buchaca completa (${esc(textoMonto(pozo))}) a ${destino}.
       </p>
     </section>
   `;
@@ -327,21 +376,21 @@ function panelEntregas(r: Resumen): string {
       const reciente = ui.rondaRecienCerrada?.ronda === e.ronda;
       const yo = e.receptor === ui.yo ? ' <span class="tu">tú</span>' : "";
       return `<li class="${reciente ? "reciente" : ""}">
-        <span class="num">Ronda ${e.ronda}</span>
+        <span class="num">Turno ${e.ronda}</span>
         <span class="detalle">
-          Todos aportaron (${e.aportes}/${e.aportes}) · Pozo de ${esc(textoMonto(e.monto))} enviado a
+          Todos aportaron (${e.aportes}/${e.aportes}) · Buchaca de ${esc(textoMonto(e.monto))} enviada a
           <code>${esc(acortarDireccion(e.receptor))}</code>${yo}
         </span>
-        <span class="marca-ok">${reciente ? "recién enviado" : "enviado"}</span>
+        <span class="marca-ok">${reciente ? "recién enviada" : "enviada"}</span>
       </li>`;
     })
     .join("");
 
   return `
     <section class="panel">
-      <h2>Pozos entregados</h2>
+      <h2>Buchacas entregadas</h2>
       <p class="pie-panel">
-        En cada ronda cerrada se reunieron todas las cuotas y el pozo completo se transfirió automáticamente según el orden sorteado.
+        En cada turno cerrado se reunieron todas las cuotas y la buchaca completa se transfirió automáticamente según el orden rifado.
       </p>
       <ol class="entregas">${items}</ol>
     </section>
@@ -356,8 +405,8 @@ function panelInscripcion(r: Resumen): string {
     <section class="panel">
       <h2>Inscripciones</h2>
       <div class="barra"><span style="width: ${porcentaje}%"></span></div>
-      <p>${r.inscritos} de ${r.cupo} lugares ocupados. La tanda arranca sola cuando se llena el cupo.</p>
-      <p class="pie-panel">Cualquiera con el enlace puede ocupar un lugar libre: el contrato no distingue invitados de desconocidos.</p>
+      <p>${r.inscritos} de ${r.cupo} campos ocupados. La ronda arranca sola cuando se llena el cupo.</p>
+      <p class="pie-panel">Cualquiera con el enlace puede ocupar un campo libre: el contrato no distingue invitados de desconocidos.</p>
     </section>
   `;
 }
@@ -405,7 +454,7 @@ function panelOrden(r: Resumen): string {
   return `
     <section class="panel">
       <h2>Orden de cobro</h2>
-      <p class="pie-panel">Lo sorteó la red cuando se llenó el cupo. Nadie pudo elegirlo.</p>
+      <p class="pie-panel">Lo rifó la red cuando se llenó el cupo. Nadie pudo elegirlo a dedo.</p>
       <ol class="orden">${items}</ol>
     </section>
   `;
@@ -431,16 +480,75 @@ function panelAccion(r: Resumen): string {
 }
 
 function panelIntro(): string {
+  const plazos = [
+    ["600", "10 minutos (prueba rápida)"],
+    ["3600", "1 hora"],
+    ["86400", "1 día"],
+    ["604800", "1 semana"],
+  ]
+    .map(
+      ([valor, etiqueta]) =>
+        `<option value="${valor}"${ui.formCrear.duracion === valor ? " selected" : ""}>${etiqueta}</option>`,
+    )
+    .join("");
+
+  const botonCrear = !ui.yo
+    ? '<button type="button" class="principal" data-accion="conectar">Conectar wallet para crear</button>'
+    : `<button type="submit" class="principal" ${ui.creando || !!ui.avisoRed ? "disabled" : ""}>
+        ${ui.creando ? "Creando ronda…" : "Crear ronda nueva"}
+      </button>`;
+
   return `
     <section class="panel">
-      <h2>Falta el ID</h2>
+      <h2>Crear ronda nueva</h2>
       <p>
-        El organizador despliega el contrato una vez con la cuota, el plazo y el cupo, y reparte
-        el enlace. Cada persona firma su inscripción con su propia wallet hasta llenar el cupo.
-        Pega el ID (<code>C…</code>, 56 caracteres) en el campo de arriba.
+        Despliega tu propia ronda vacía en Stellar testnet con XLM de prueba y comparte el enlace
+        generado para que cada persona ocupe un campo.
+      </p>
+      <form id="form-crear" class="form-crear" novalidate>
+        <div class="campos-crear">
+          <div>
+            <label for="crear-cupo">Campos (cupo)</label>
+            <input
+              id="crear-cupo"
+              name="cupo"
+              type="number"
+              min="2"
+              max="50"
+              step="1"
+              value="${esc(ui.formCrear.cupo)}"
+            />
+          </div>
+          <div>
+            <label for="crear-cuota">Cuota por turno (XLM)</label>
+            <input
+              id="crear-cuota"
+              name="cuota"
+              type="text"
+              inputmode="decimal"
+              value="${esc(ui.formCrear.cuota)}"
+            />
+          </div>
+          <div>
+            <label for="crear-duracion">Plazo por turno</label>
+            <select id="crear-duracion" name="duracion">${plazos}</select>
+          </div>
+        </div>
+        ${botonCrear}
+      </form>
+      <p class="pie-panel">
+        Los parámetros no se pueden cambiar después. El creador no entra automáticamente: después
+        firmas tu campo como cualquier participante.
+      </p>
+    </section>
+    <section class="panel">
+      <h2>Abrir una ronda existente</h2>
+      <p>
+        Si ya te compartieron un enlace o tienes el ID de una ronda en curso, pega el ID
+        (<code>C…</code>, 56 caracteres) en el campo de arriba.
       </p>
       <details>
-        <summary>Cómo desplegar una tanda nueva</summary>
+        <summary>Cómo desplegar una ronda nueva por CLI</summary>
         <pre># 1. Compila y despliega en testnet (la cuota va en stroops):
 stellar contract build
 stellar contract deploy \\
@@ -483,7 +591,7 @@ function pintarMensajes(): void {
       ? ` <a href="${esc(enlaceTransaccion(ui.ultimaTx))}" target="_blank" rel="noreferrer noopener">Verla en Stellar Expert</a>`
       : "";
     partes.push(
-      `<p class="exito">Ronda ${e.ronda} completada: aportaron los ${e.aportes}/${e.aportes} miembros y ya se envió el pozo de ${esc(textoMonto(e.monto))} a <code>${esc(acortarDireccion(e.receptor))}</code>${tu}.${enlace}</p>`,
+      `<p class="exito">Turno ${e.ronda} completado: aportaron los ${e.aportes}/${e.aportes} miembros y ya se envió la buchaca de ${esc(textoMonto(e.monto))} a <code>${esc(acortarDireccion(e.receptor))}</code>${tu}.${enlace}</p>`,
     );
   } else if (ui.ultimaTx) {
     partes.push(
@@ -507,7 +615,7 @@ function pintar(): void {
     ? panelIntro()
     : ui.resumen
       ? panelTanda(ui.resumen)
-      : `<section class="panel"><h2>Leyendo la tanda</h2><p>Consultando el contrato en testnet…</p></section>`;
+      : `<section class="panel"><h2>Leyendo la ronda</h2><p>Consultando el contrato en testnet…</p></section>`;
 }
 
 function refrescarCuenta(): void {
@@ -544,13 +652,41 @@ async function arrancar(): Promise<void> {
     location.href = destino.toString();
   });
 
+  const actualizarFormCrear = (evento: Event) => {
+    const campo = evento.target as HTMLInputElement | HTMLSelectElement | null;
+    if (!campo || campo.closest("#form-crear") === null) return;
+    if (campo.name === "cupo") ui.formCrear.cupo = campo.value;
+    else if (campo.name === "cuota") ui.formCrear.cuota = campo.value;
+    else if (campo.name === "duracion") ui.formCrear.duracion = campo.value;
+  };
+  document.addEventListener("input", actualizarFormCrear);
+  document.addEventListener("change", actualizarFormCrear);
+
+  document.addEventListener("submit", (evento) => {
+    if ((evento.target as HTMLElement | null)?.id !== "form-crear") return;
+    evento.preventDefault();
+    void crearNuevaRonda();
+  });
+
   document.addEventListener("click", (evento) => {
     const objetivo = (evento.target as HTMLElement | null)?.closest<HTMLElement>("[data-accion]");
     if (!objetivo || objetivo.hasAttribute("disabled")) return;
     const accion = objetivo.dataset.accion;
     if (accion === "conectar") void conectarBilletera();
     else if (accion === "cambiar") void cambiarBilletera();
-    else if (accion === "unirse" || accion === "aportar" || accion === "reclamar") {
+    else if (accion === "copiar-enlace") {
+      void navigator.clipboard?.writeText(location.href).then(
+        () => {
+          objetivo.textContent = "Enlace copiado";
+          window.setTimeout(() => {
+            if (objetivo.isConnected) objetivo.textContent = "Copiar enlace";
+          }, 2000);
+        },
+        () => {
+          objetivo.textContent = "No se pudo copiar";
+        },
+      );
+    } else if (accion === "unirse" || accion === "aportar" || accion === "reclamar") {
       void actuar(accion);
     }
   });

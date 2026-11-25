@@ -10,10 +10,12 @@ import {
   formatearImporte,
   montoPozo,
   normalizarResumen,
+  parsearImporte,
   quienesCobraron,
   segundosRestantes,
   sugerirAccion,
   traducirError,
+  validarNuevaRonda,
   type Resumen,
 } from "./logica";
 
@@ -105,7 +107,7 @@ describe("sugerirAccion", () => {
       0,
     );
     expect(r.accion).toBe("unirse");
-    expect(r.motivo).toMatch(/ocupa un lugar/i);
+    expect(r.motivo).toMatch(/ocupa un campo/i);
   });
 
   it("cuenta los lugares que faltan cuando ya estoy dentro", () => {
@@ -295,5 +297,47 @@ describe("enlaceFriendbot", () => {
     const u = enlaceFriendbot(`G\"><script>alert(1)</script>`);
     expect(u).toMatch(/^https:\/\/friendbot\.stellar\.org\/\?addr=/);
     expect(u.slice("https://friendbot.stellar.org/?addr=".length)).not.toMatch(/[<>"\s]/);
+  });
+});
+
+describe("parsearImporte", () => {
+  it("convierte enteros y decimales con punto o coma a stroops exactos", () => {
+    expect(parsearImporte("10")).toBe(10_0000000n);
+    expect(parsearImporte("1.5")).toBe(1_5000000n);
+    expect(parsearImporte(" 2,25 ")).toBe(2_2500000n);
+    expect(parsearImporte("0.0000001")).toBe(1n);
+  });
+
+  it("rechaza cero, negativos, texto o más decimales de los permitidos", () => {
+    expect(parsearImporte("0")).toBeNull();
+    expect(parsearImporte("0.0000000")).toBeNull();
+    expect(parsearImporte("-5")).toBeNull();
+    expect(parsearImporte("abc")).toBeNull();
+    expect(parsearImporte("1.00000001")).toBeNull();
+  });
+});
+
+describe("validarNuevaRonda", () => {
+  it("acepta parámetros válidos y los normaliza", () => {
+    expect(validarNuevaRonda({ cupo: "3", cuota: "10.5", duracion: "600" })).toEqual({
+      ok: true,
+      datos: { cupo: 3, aporte: 10_5000000n, duracion: 600n },
+    });
+  });
+
+  it("rechaza cupo fuera de rango o no entero", () => {
+    expect(validarNuevaRonda({ cupo: "1", cuota: "10", duracion: "600" }).ok).toBe(false);
+    expect(validarNuevaRonda({ cupo: "51", cuota: "10", duracion: "600" }).ok).toBe(false);
+    expect(validarNuevaRonda({ cupo: "2.5", cuota: "10", duracion: "600" }).ok).toBe(false);
+  });
+
+  it("rechaza cuota inválida o buchaca que excede i64", () => {
+    expect(validarNuevaRonda({ cupo: "3", cuota: "0", duracion: "600" }).ok).toBe(false);
+    expect(validarNuevaRonda({ cupo: "2", cuota: "900000000000", duracion: "600" }).ok).toBe(false);
+  });
+
+  it("rechaza plazo fuera de rango", () => {
+    expect(validarNuevaRonda({ cupo: "3", cuota: "10", duracion: "59" }).ok).toBe(false);
+    expect(validarNuevaRonda({ cupo: "3", cuota: "10", duracion: "1209601" }).ok).toBe(false);
   });
 });

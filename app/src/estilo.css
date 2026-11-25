@@ -86,7 +86,8 @@ a {
   gap: 0.5rem;
 }
 
-input {
+input,
+select {
   flex: 1;
   min-width: 0;
   padding: 0.55rem 0.7rem;
@@ -100,6 +101,7 @@ input {
 }
 
 input:focus-visible,
+select:focus-visible,
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible {
@@ -480,6 +482,45 @@ details pre {
   font-size: 0.8rem;
   line-height: 1.5;
   white-space: pre;
+}
+
+/* --- Crear ronda y acciones -------------------------------------------- */
+
+.form-crear {
+  margin-top: 1rem;
+}
+
+.campos-crear {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.8rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.campos-crear label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tenue);
+}
+
+.campos-crear input,
+.campos-crear select {
+  width: 100%;
+}
+
+.acciones-ronda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+}
+
+button.secundario {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.82rem;
 }
 
 /* --- Pie --------------------------------------------------------------- */
