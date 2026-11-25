@@ -27,7 +27,13 @@
     Decimales del token, para convertir la cuota a unidades mínimas. XLM usa 7.
 
 .PARAMETER DuracionSegundos
-    Plazo de cada ronda en segundos. Por defecto 604800 (una semana).
+    Plazo de cada aporte/turno en segundos. Por defecto 604800 (una semana).
+
+.PARAMETER AportesPorTurno
+    Cuántos aportes por miembro reúne cada turno antes de entregar la buchaca. Por defecto 1.
+
+.PARAMETER EsperaSegundos
+    Segundos de espera tras completarse un periodo de aportes antes de abrir el siguiente. Por defecto 0 (inmediato).
 
 .PARAMETER Token
     ID del token (contrato SAC). Si se omite, se resuelve el XLM nativo de testnet.
@@ -51,6 +57,10 @@ param(
     [int]$Decimales = 7,
 
     [int]$DuracionSegundos = 604800,
+
+    [int]$AportesPorTurno = 1,
+
+    [int]$EsperaSegundos = 0,
 
     [string]$Token,
 
@@ -95,12 +105,20 @@ function Buscar-Stellar {
 
 # --- Validaciones -----------------------------------------------------------
 
-if ($Cupo -lt 2) {
-    Fallar "Una tanda necesita al menos dos lugares (cupo >= 2)."
+if ($Cupo -lt 2 -or $Cupo -gt 50) {
+    Fallar "El cupo debe estar entre 2 y 50 campos."
 }
 
 if ($Aporte -le 0) { Fallar "La cuota tiene que ser mayor que cero." }
-if ($DuracionSegundos -le 0) { Fallar "La duración tiene que ser mayor que cero." }
+if ($DuracionSegundos -lt 60 -or $DuracionSegundos -gt 1209600) {
+    Fallar "La duración debe estar entre 60 y 1 209 600 segundos (14 días)."
+}
+if ($AportesPorTurno -lt 1 -or $AportesPorTurno -gt 24) {
+    Fallar "Los aportes por turno deben estar entre 1 y 24."
+}
+if ($EsperaSegundos -lt 0 -or $EsperaSegundos -gt 1209600) {
+    Fallar "La espera entre aportes debe estar entre 0 y 1 209 600 segundos (14 días)."
+}
 
 $factor = [long][math]::Pow(10, $Decimales)
 $aporteMinimo = [long]($Aporte * $factor)
@@ -127,25 +145,23 @@ $Token = $Token.Trim()
 
 # --- Build ------------------------------------------------------------------
 
-if (-not (Test-Path $wasm)) {
-    Write-Host "Compilando el contrato..."
-    Push-Location $raiz
-    try {
-        $build = Invocar-Nativo { & $stellar contract build }
-    }
-    finally {
-        Pop-Location
-    }
-    if ($build.Codigo -ne 0) {
-        $build.Salida | ForEach-Object { Write-Host $_ }
-        Fallar "Falló 'stellar contract build'."
-    }
+Write-Host "Compilando el contrato..."
+Push-Location $raiz
+try {
+    $build = Invocar-Nativo { & $stellar contract build }
+}
+finally {
+    Pop-Location
+}
+if ($build.Codigo -ne 0) {
+    $build.Salida | ForEach-Object { Write-Host $_ }
+    Fallar "Falló 'stellar contract build'."
 }
 if (-not (Test-Path $wasm)) { Fallar "No encuentro el wasm compilado en $wasm." }
 
 # --- Despliegue -------------------------------------------------------------
 
-Write-Host ("Desplegando en testnet: cupo {0}, cuota {1}, plazo {2} s..." -f $Cupo, $Aporte, $DuracionSegundos)
+Write-Host ("Desplegando en testnet: cupo {0}, cuota {1}, plazo {2} s, aportes/turno {3}, espera {4} s..." -f $Cupo, $Aporte, $DuracionSegundos, $AportesPorTurno, $EsperaSegundos)
 
 $despliegue = Invocar-Nativo {
     & $stellar contract deploy `
@@ -155,7 +171,9 @@ $despliegue = Invocar-Nativo {
         -- --token $Token `
            --aporte $aporteMinimo `
            --duracion $DuracionSegundos `
-           --cupo $Cupo
+           --cupo $Cupo `
+           --aportes_por_turno $AportesPorTurno `
+           --espera $EsperaSegundos
 }
 
 if ($despliegue.Codigo -ne 0) {

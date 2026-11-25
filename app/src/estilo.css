@@ -511,6 +511,25 @@ details pre {
   width: 100%;
 }
 
+.form-crear .avanzado {
+  margin: 0.25rem 0 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--hundido);
+}
+
+.form-crear .avanzado .campos-crear {
+  margin-top: 0.85rem;
+  margin-bottom: 0;
+}
+
+.resumen-crear {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: var(--tenue);
+}
+
 .acciones-ronda {
   display: flex;
   flex-wrap: wrap;

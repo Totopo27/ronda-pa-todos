@@ -24,6 +24,11 @@ export interface Resumen {
   unido: boolean;
   haPagado: boolean;
   yaDevuelto: boolean;
+  aportesPorTurno: number;
+  paso: number;
+  espera: bigint;
+  apertura: bigint;
+  aportesMiembro: number;
 }
 
 export interface Sugerencia {
@@ -60,6 +65,14 @@ function direcciones(valor: unknown): string[] {
 /** Traduce lo que devuelve `resumen()` en la forma que consume la interfaz. */
 export function normalizarResumen(crudo: unknown): Resumen {
   const c = (crudo ?? {}) as Record<string, unknown>;
+  const haPagado = c.ha_pagado === true;
+  const aportesPorTurno = Number(entero(c.aportes_por_turno));
+  const aportesMiembro =
+    c.aportes_miembro !== undefined
+      ? Math.max(0, Number(entero(c.aportes_miembro)))
+      : haPagado
+        ? 1
+        : 0;
   return {
     token: typeof c.token === "string" ? c.token : null,
     estado: estadoDesdeCrudo(c.estado),
@@ -73,8 +86,13 @@ export function normalizarResumen(crudo: unknown): Resumen {
     inicio: entero(c.inicio),
     aQuienToca: typeof c.a_quien_toca === "string" ? c.a_quien_toca : null,
     unido: c.unido === true,
-    haPagado: c.ha_pagado === true,
+    haPagado,
     yaDevuelto: c.ya_devuelto === true,
+    aportesPorTurno: aportesPorTurno > 0 ? aportesPorTurno : 1,
+    paso: Math.max(0, Number(entero(c.paso))),
+    espera: entero(c.espera),
+    apertura: entero(c.apertura),
+    aportesMiembro,
   };
 }
 
@@ -90,19 +108,22 @@ export interface EntregaPozo {
   aportes: number;
 }
 
-/** Suma del pozo completo de una ronda (`cuota × cupo`). */
-export function montoPozo(r: Pick<Resumen, "aporte" | "cupo">): bigint {
-  return r.aporte * BigInt(Math.max(0, r.cupo));
+/** Suma de la buchaca completa de un turno (`cuota × cupo × aportesPorTurno`). */
+export function montoPozo(
+  r: Pick<Resumen, "aporte" | "cupo" | "aportesPorTurno">,
+): bigint {
+  return r.aporte * BigInt(Math.max(0, r.cupo)) * BigInt(Math.max(1, r.aportesPorTurno));
 }
 
 /** Rondas completadas cuyo pozo ya se transfirió al miembro correspondiente. */
 export function entregasRealizadas(r: Resumen): EntregaPozo[] {
   const monto = montoPozo(r);
+  const aportes = r.cupo * Math.max(1, r.aportesPorTurno);
   return quienesCobraron(r).map((receptor, i) => ({
     ronda: i + 1,
     receptor,
     monto,
-    aportes: r.cupo,
+    aportes,
   }));
 }
 
@@ -114,6 +135,12 @@ export function entregaDeRondaCerrada(
   if (!anterior || actual.ronda <= anterior.ronda) return null;
   const entregas = entregasRealizadas(actual);
   return entregas[entregas.length - 1] ?? null;
+}
+
+/** Segundos hasta que abra el siguiente aporte; 0 si ya está abierto. */
+export function segundosHastaApertura(r: Resumen, ahoraSegundos: number): number {
+  if (r.apertura === 0n) return 0;
+  return Math.max(0, Number(r.apertura) - ahoraSegundos);
 }
 
 /** Segundos que le quedan a la ronda en curso. Nunca negativo; 0 si no arrancó. */
@@ -168,7 +195,7 @@ export function sugerirAccion(
     if (r.yaDevuelto) {
       return { accion: null, motivo: "La ronda se abortó y ya recuperaste tu aporte." };
     }
-    if (r.haPagado) {
+    if (r.haPagado || r.aportesMiembro > 0) {
       return { accion: "reclamar", motivo: "La ronda se abortó. Recupera tu aporte." };
     }
     return {
@@ -182,6 +209,14 @@ export function sugerirAccion(
   }
 
   // Activa.
+  const faltaAbrir = segundosHastaApertura(r, ahoraSegundos);
+  if (faltaAbrir > 0) {
+    return {
+      accion: null,
+      motivo: `El próximo aporte abre en ${formatearDuracion(faltaAbrir)}.`,
+    };
+  }
+
   if (r.haPagado) {
     if (!vigente) {
       return {
@@ -192,10 +227,21 @@ export function sugerirAccion(
     }
     return {
       accion: null,
-      motivo: "Ya aportaste este turno. Esperando a los demás.",
+      motivo:
+        r.aportesPorTurno > 1
+          ? "Ya aportaste este periodo. Esperando a los demás."
+          : "Ya aportaste este turno. Esperando a los demás.",
     };
   }
   if (!vigente) {
+    if (r.aportesMiembro > 0) {
+      return {
+        accion: "reclamar",
+        motivo:
+          "El plazo venció y ya tienes aportes en este turno. Puedes recuperar todo lo que pusiste en este turno.",
+        aviso: "Si reclamas, la ronda se aborta para todos y nadie más cobra su buchaca.",
+      };
+    }
     return {
       accion: "aportar",
       motivo: "El plazo de este turno ya venció, pero nadie ha reclamado todavía.",
@@ -211,12 +257,17 @@ export const MIN_CUPO = 2;
 export const MAX_CUPO = 50;
 export const MIN_DURACION = 60n;
 export const MAX_DURACION = 1_209_600n;
+export const MIN_APORTES_POR_TURNO = 1;
+export const MAX_APORTES_POR_TURNO = 24;
+export const MAX_ESPERA = 1_209_600n;
 const MAX_SAC_I64 = 9_223_372_036_854_775_807n;
 
 export interface ParametrosNuevaRonda {
   cupo: number;
   aporte: bigint;
   duracion: bigint;
+  aportesPorTurno: number;
+  espera: bigint;
 }
 
 /** Convierte un monto decimal en texto (p. ej. "10.5" o "10,5") a stroops enteros. */
@@ -229,11 +280,13 @@ export function parsearImporte(texto: string, decimales = DECIMALES_XLM): bigint
   return valor > 0n ? valor : null;
 }
 
-/** Valida cupo, cuota y plazo antes de construir la transacción de despliegue. */
+/** Valida cupo, cuota, plazo y frecuencia antes de construir la transacción de despliegue. */
 export function validarNuevaRonda(entrada: {
   cupo: string;
   cuota: string;
   duracion: string;
+  aportesPorTurno?: string;
+  espera?: string;
 }): { ok: true; datos: ParametrosNuevaRonda } | { ok: false; error: string } {
   const cupoTxt = entrada.cupo.trim();
   if (!/^\d+$/.test(cupoTxt)) {
@@ -244,6 +297,19 @@ export function validarNuevaRonda(entrada: {
     return { ok: false, error: "El cupo debe estar entre 2 y 50 campos." };
   }
 
+  const aportesTxt = (entrada.aportesPorTurno ?? "1").trim();
+  if (!/^\d+$/.test(aportesTxt)) {
+    return { ok: false, error: "Los aportes por turno deben ser un número entero entre 1 y 24." };
+  }
+  const aportesPorTurno = Number(aportesTxt);
+  if (
+    !Number.isSafeInteger(aportesPorTurno) ||
+    aportesPorTurno < MIN_APORTES_POR_TURNO ||
+    aportesPorTurno > MAX_APORTES_POR_TURNO
+  ) {
+    return { ok: false, error: "Los aportes por turno deben estar entre 1 y 24." };
+  }
+
   const aporte = parsearImporte(entrada.cuota, DECIMALES_XLM);
   if (aporte === null) {
     return {
@@ -251,10 +317,10 @@ export function validarNuevaRonda(entrada: {
       error: "La cuota debe ser un monto de XLM mayor que cero (hasta 7 decimales).",
     };
   }
-  if (aporte * BigInt(cupo) > MAX_SAC_I64) {
+  if (aporte * BigInt(cupo) * BigInt(aportesPorTurno) > MAX_SAC_I64) {
     return {
       ok: false,
-      error: "La buchaca total (cuota × cupo) excede el límite máximo del token.",
+      error: "La buchaca total (cuota × cupo × aportes por turno) excede el límite máximo del token.",
     };
   }
 
@@ -270,7 +336,19 @@ export function validarNuevaRonda(entrada: {
     };
   }
 
-  return { ok: true, datos: { cupo, aporte, duracion } };
+  const esperaTxt = (entrada.espera ?? "0").trim();
+  if (!/^\d+$/.test(esperaTxt)) {
+    return { ok: false, error: "La espera entre aportes debe ser un número entero en segundos." };
+  }
+  const espera = BigInt(esperaTxt);
+  if (espera > MAX_ESPERA) {
+    return {
+      ok: false,
+      error: "La espera entre aportes no puede superar 14 días (1 209 600 s).",
+    };
+  }
+
+  return { ok: true, datos: { cupo, aporte, duracion, aportesPorTurno, espera } };
 }
 
 /** `15000000n` con 7 decimales es "1.5", no "1.5000000". */
@@ -311,6 +389,9 @@ const ERRORES: Record<number, string> = {
   11: "Esa cuenta no aportó el turno en curso, así que no tiene nada que reclamar.",
   12: "Ese aporte ya fue devuelto.",
   13: "El contrato no tiene configuración. ¿Seguro que ese ID es una ronda?",
+  14: "Los aportes por turno deben estar entre 1 y 24.",
+  15: "La espera entre aportes no puede superar 14 días.",
+  16: "Todavía no abre la ventana para el siguiente aporte.",
 };
 
 /** El host devuelve `Error(Contract, #N)` dentro de un mensaje largo. */

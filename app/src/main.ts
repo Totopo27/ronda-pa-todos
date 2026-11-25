@@ -1,4 +1,5 @@
 import {
+  DECIMALES_XLM,
   acortarDireccion,
   describirError,
   enlaceFriendbot,
@@ -7,6 +8,7 @@ import {
   formatearDuracion,
   formatearImporte,
   montoPozo,
+  segundosHastaApertura,
   segundosRestantes,
   sugerirAccion,
   validarNuevaRonda,
@@ -66,10 +68,13 @@ interface Estado {
   ultimaTx: string | null;
   ocupado: boolean;
   creando: boolean;
+  mostrarCalendario: boolean;
   formCrear: {
     cupo: string;
     cuota: string;
     duracion: string;
+    aportesPorTurno: string;
+    espera: string;
   };
 }
 
@@ -88,10 +93,13 @@ const ui: Estado = {
   ultimaTx: null,
   ocupado: false,
   creando: false,
+  mostrarCalendario: false,
   formCrear: {
     cupo: "3",
     cuota: "10",
     duracion: "600",
+    aportesPorTurno: "1",
+    espera: "0",
   },
 };
 
@@ -286,12 +294,17 @@ function textoCuenta(r: Resumen): string {
     return "La ronda terminó: todos cobraron su buchaca exactamente una vez.";
   }
   if (r.estado === "Abortada") {
-    return "La ronda se abortó. Quien aportó su cuota de este turno puede recuperarla.";
+    return "La ronda se abortó. Quien aportó en este turno puede recuperarlo.";
   }
   const ronda = Math.min(r.ronda + 1, r.cupo);
+  const paso = r.aportesPorTurno > 1 ? ` (aporte ${r.paso + 1} de ${r.aportesPorTurno})` : "";
+  const faltaAbrir = segundosHastaApertura(r, ahora());
+  if (faltaAbrir > 0) {
+    return `Turno ${ronda} de ${r.cupo}${paso}: el próximo aporte abre en ${formatearDuracion(faltaAbrir)}.`;
+  }
   const restante = segundosRestantes(r, ahora());
   if (restante > 0) {
-    return `Quedan ${formatearDuracion(restante)} para que cierre el turno ${ronda} de ${r.cupo}.`;
+    return `Quedan ${formatearDuracion(restante)} para que cierre el turno ${ronda} de ${r.cupo}${paso}.`;
   }
   return `El plazo del turno ${ronda} ya venció. Quien aportó puede recuperar su plata; quien no aportó ya no cobrará su buchaca.`;
 }
@@ -301,6 +314,14 @@ function panelTanda(r: Resumen): string {
     r.estado === "Inscripcion"
       ? "—"
       : `${Math.min(r.ronda + 1, r.cupo)} de ${r.cupo}`;
+  const campoAportes =
+    r.aportesPorTurno > 1
+      ? `<div><dt>Aportes por turno</dt><dd>${r.aportesPorTurno}</dd></div>`
+      : "";
+  const campoEspera =
+    r.espera > 0n
+      ? `<div><dt>Espera entre aportes</dt><dd>${esc(formatearDuracion(Number(r.espera)))}</dd></div>`
+      : "";
 
   return `
     <section class="panel">
@@ -311,7 +332,9 @@ function panelTanda(r: Resumen): string {
       <dl class="datos">
         <div><dt>Cuota</dt><dd>${esc(textoCuota(r))}</dd></div>
         <div><dt>Buchaca por turno</dt><dd>${esc(textoMonto(montoPozo(r)))}</dd></div>
-        <div><dt>Plazo por turno</dt><dd>${esc(formatearDuracion(Number(r.duracion)))}</dd></div>
+        ${campoAportes}
+        ${campoEspera}
+        <div><dt>Plazo por ${r.aportesPorTurno > 1 ? "aporte" : "turno"}</dt><dd>${esc(formatearDuracion(Number(r.duracion)))}</dd></div>
         <div><dt>Turno</dt><dd>${esc(ronda)}</dd></div>
         <div><dt>Campos</dt><dd>${r.inscritos} de ${r.cupo} ocupados</dd></div>
       </dl>
@@ -340,29 +363,32 @@ function panelAportesRonda(r: Resumen): string {
   if (r.estado !== "Activa") return "";
   const rondaActual = Math.min(r.ronda + 1, r.cupo);
   const pozo = montoPozo(r);
+  const requeridosTurno = r.cupo * Math.max(1, r.aportesPorTurno);
 
   let progreso = "";
   if (ui.pagadosRonda) {
-    const pagados = r.miembros.filter((m) => ui.pagadosRonda?.has(m)).length;
-    const total = Math.max(1, r.cupo);
-    const porcentaje = Math.min(100, Math.round((pagados / total) * 100));
-    const reunido = r.aporte * BigInt(pagados);
+    const pagadosPaso = r.miembros.filter((m) => ui.pagadosRonda?.has(m)).length;
+    const acumulados = r.paso * r.cupo + pagadosPaso;
+    const total = Math.max(1, requeridosTurno);
+    const porcentaje = Math.min(100, Math.round((acumulados / total) * 100));
+    const reunido = r.aporte * BigInt(acumulados);
     progreso = `
       <div class="barra"><span style="width: ${porcentaje}%"></span></div>
-      <p>${pagados} de ${r.cupo} aportes reunidos (${esc(textoMonto(reunido))} de ${esc(textoMonto(pozo))}).</p>
+      <p>${acumulados} de ${requeridosTurno} aportes reunidos (${esc(textoMonto(reunido))} de ${esc(textoMonto(pozo))}).</p>
     `;
   }
 
   const destino = r.aQuienToca
     ? `<code>${esc(acortarDireccion(r.aQuienToca))}</code>${r.aQuienToca === ui.yo ? ' <span class="tu">tú</span>' : ""}`
     : "la persona en turno";
+  const pasoTitulo = r.aportesPorTurno > 1 ? ` · aporte ${r.paso + 1} de ${r.aportesPorTurno}` : "";
 
   return `
     <section class="panel">
-      <h2>Aportes del turno ${rondaActual}</h2>
+      <h2>Aportes del turno ${rondaActual}${pasoTitulo}</h2>
       ${progreso}
       <p class="pie-panel">
-        Al reunir los ${r.cupo} aportes, el contrato envía de inmediato la buchaca completa (${esc(textoMonto(pozo))}) a ${destino}.
+        Al reunir los ${requeridosTurno} aportes, el contrato envía de inmediato la buchaca completa (${esc(textoMonto(pozo))}) a ${destino}.
       </p>
     </section>
   `;
@@ -479,6 +505,24 @@ function panelAccion(r: Resumen): string {
   `;
 }
 
+function textoResumenCrear(): string {
+  const val = validarNuevaRonda(ui.formCrear);
+  if (!val.ok) return val.error;
+  const { cupo, aporte, aportesPorTurno, espera } = val.datos;
+  const buchaca = formatearImporte(
+    aporte * BigInt(cupo) * BigInt(aportesPorTurno),
+    DECIMALES_XLM,
+  );
+  if (aportesPorTurno === 1 && espera === 0n) {
+    return `Cada turno reúne ${cupo} aportes (buchaca de ${buchaca} XLM). Modo inmediato.`;
+  }
+  const ritmo =
+    espera > 0n
+      ? `, abriendo cada ${formatearDuracion(Number(espera))}`
+      : ", sin espera entre aportes";
+  return `Cada turno reúne ${cupo * aportesPorTurno} aportes (${aportesPorTurno} por persona) → buchaca grande de ${buchaca} XLM${ritmo}.`;
+}
+
 function panelIntro(): string {
   const plazos = [
     ["600", "10 minutos (prueba rápida)"],
@@ -489,6 +533,34 @@ function panelIntro(): string {
     .map(
       ([valor, etiqueta]) =>
         `<option value="${valor}"${ui.formCrear.duracion === valor ? " selected" : ""}>${etiqueta}</option>`,
+    )
+    .join("");
+
+  const aportesOpciones = [
+    ["1", "1 aporte por turno (inmediato)"],
+    ["2", "2 aportes por turno"],
+    ["4", "4 aportes por turno (ej. 1 mes semanal)"],
+    ["8", "8 aportes por turno (ej. 1 mes, 2/sem)"],
+    ["12", "12 aportes por turno (ej. 3 meses semanal)"],
+    ["24", "24 aportes por turno (ej. 3 meses, 2/sem)"],
+  ]
+    .map(
+      ([valor, etiqueta]) =>
+        `<option value="${valor}"${ui.formCrear.aportesPorTurno === valor ? " selected" : ""}>${etiqueta}</option>`,
+    )
+    .join("");
+
+  const esperasOpciones = [
+    ["0", "Sin espera (pueden aportar seguido)"],
+    ["60", "1 minuto (prueba rápida con espera)"],
+    ["86400", "Cada 1 día"],
+    ["302400", "Cada ~3.5 días (2 veces/sem)"],
+    ["604800", "Cada 7 días (1 vez/sem)"],
+    ["1209600", "Cada 14 días"],
+  ]
+    .map(
+      ([valor, etiqueta]) =>
+        `<option value="${valor}"${ui.formCrear.espera === valor ? " selected" : ""}>${etiqueta}</option>`,
     )
     .join("");
 
@@ -520,7 +592,7 @@ function panelIntro(): string {
             />
           </div>
           <div>
-            <label for="crear-cuota">Cuota por turno (XLM)</label>
+            <label for="crear-cuota">Cuota por aporte (XLM)</label>
             <input
               id="crear-cuota"
               name="cuota"
@@ -530,10 +602,28 @@ function panelIntro(): string {
             />
           </div>
           <div>
-            <label for="crear-duracion">Plazo por turno</label>
+            <label for="crear-duracion">Plazo límite</label>
             <select id="crear-duracion" name="duracion">${plazos}</select>
           </div>
         </div>
+        <details id="calendario-crear" class="avanzado"${ui.mostrarCalendario ? " open" : ""}>
+          <summary>Personalizar periodo y frecuencia de ahorro (opcional)</summary>
+          <div class="campos-crear">
+            <div>
+              <label for="crear-aportes">Aportes antes de entregar buchaca</label>
+              <select id="crear-aportes" name="aportesPorTurno">${aportesOpciones}</select>
+            </div>
+            <div>
+              <label for="crear-espera">Ritmo entre aportes</label>
+              <select id="crear-espera" name="espera">${esperasOpciones}</select>
+            </div>
+          </div>
+          <p class="pie-panel">
+            El ritmo controla cuándo abre el siguiente aporte; el plazo límite sigue protegiendo con
+            Reclamar si alguien deja de pagar.
+          </p>
+        </details>
+        <p class="resumen-crear" id="resumen-crear">${esc(textoResumenCrear())}</p>
         ${botonCrear}
       </form>
       <p class="pie-panel">
@@ -555,7 +645,8 @@ stellar contract deploy \\
   --wasm target/wasm32v1-none/release/ronda_pa_todos.wasm \\
   --source-account mi-cuenta --network testnet \\
   -- --token CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \\
-     --aporte 1000000000 --duracion 604800 --cupo 3
+     --aporte 1000000000 --duracion 604800 --cupo 3 \\
+     --aportes_por_turno 1 --espera 0
 
 # 2. Abre la página con ?contrato=EL_ID_QUE_DEVOLVIO</pre>
         <p class="pie-panel">
@@ -658,9 +749,21 @@ async function arrancar(): Promise<void> {
     if (campo.name === "cupo") ui.formCrear.cupo = campo.value;
     else if (campo.name === "cuota") ui.formCrear.cuota = campo.value;
     else if (campo.name === "duracion") ui.formCrear.duracion = campo.value;
+    else if (campo.name === "aportesPorTurno") ui.formCrear.aportesPorTurno = campo.value;
+    else if (campo.name === "espera") ui.formCrear.espera = campo.value;
+    const resumen = document.querySelector<HTMLElement>("#resumen-crear");
+    if (resumen) resumen.textContent = textoResumenCrear();
   };
   document.addEventListener("input", actualizarFormCrear);
   document.addEventListener("change", actualizarFormCrear);
+  document.addEventListener(
+    "toggle",
+    (evento) => {
+      const det = evento.target as HTMLDetailsElement | null;
+      if (det?.id === "calendario-crear") ui.mostrarCalendario = det.open;
+    },
+    true,
+  );
 
   document.addEventListener("submit", (evento) => {
     if ((evento.target as HTMLElement | null)?.id !== "form-crear") return;

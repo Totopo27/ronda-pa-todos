@@ -19,7 +19,7 @@ export const RPC_TESTNET = "https://soroban-testnet.stellar.org";
 export const PASSHRASE_TESTNET = "Test SDF Network ; September 2015";
 export const HORIZON_TESTNET = "https://horizon-testnet.stellar.org";
 export const WASM_HASH_RONDA =
-  "8bd7c0717fb5323233d18edbd7b1b7c37bc3d6d5e17e7aff643c7270e37849be";
+  "d5b58239363a6e99819f93053975ec262cbccf11f2b39c39b4289ef8bdeb6523";
 
 export type Firmador = (xdr: string) => Promise<string>;
 
@@ -55,6 +55,9 @@ const ERRORES: Record<number, { message: string }> = {
   11: { message: "NoHaPagado" },
   12: { message: "YaDevuelto" },
   13: { message: "NoConfigurado" },
+  14: { message: "AportesPorTurnoInvalido" },
+  15: { message: "EsperaInvalida" },
+  16: { message: "AporteAunNoAbierto" },
 };
 
 /** Las funciones del contrato, tal como las genera el SDK en runtime. */
@@ -232,6 +235,8 @@ export async function crearRonda(
           nativeToScVal(datos.aporte, { type: "i128" }),
           nativeToScVal(datos.duracion, { type: "u64" }),
           nativeToScVal(datos.cupo, { type: "u32" }),
+          nativeToScVal(datos.aportesPorTurno, { type: "u32" }),
+          nativeToScVal(datos.espera, { type: "u64" }),
         ],
       }),
     )

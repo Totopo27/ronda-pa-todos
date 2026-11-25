@@ -12,6 +12,7 @@ import {
   normalizarResumen,
   parsearImporte,
   quienesCobraron,
+  segundosHastaApertura,
   segundosRestantes,
   sugerirAccion,
   traducirError,
@@ -39,6 +40,11 @@ function tanda(cambios: Partial<Resumen> = {}): Resumen {
     unido: true,
     haPagado: false,
     yaDevuelto: false,
+    aportesPorTurno: 1,
+    paso: 0,
+    espera: 0n,
+    apertura: 0n,
+    aportesMiembro: 0,
     ...cambios,
   };
 }
@@ -257,8 +263,8 @@ describe("errores", () => {
     expect(codigoDeError("network timeout")).toBeNull();
   });
 
-  it("traduce los trece códigos del contrato", () => {
-    for (let codigo = 1; codigo <= 13; codigo++) {
+  it("traduce los dieciséis códigos del contrato", () => {
+    for (let codigo = 1; codigo <= 16; codigo++) {
       expect(traducirError(codigo)).not.toMatch(/Error del contrato/);
     }
     expect(traducirError(10)).toMatch(/plazo/i);
@@ -321,7 +327,31 @@ describe("validarNuevaRonda", () => {
   it("acepta parámetros válidos y los normaliza", () => {
     expect(validarNuevaRonda({ cupo: "3", cuota: "10.5", duracion: "600" })).toEqual({
       ok: true,
-      datos: { cupo: 3, aporte: 10_5000000n, duracion: 600n },
+      datos: {
+        cupo: 3,
+        aporte: 10_5000000n,
+        duracion: 600n,
+        aportesPorTurno: 1,
+        espera: 0n,
+      },
+    });
+    expect(
+      validarNuevaRonda({
+        cupo: "3",
+        cuota: "10",
+        duracion: "604800",
+        aportesPorTurno: "4",
+        espera: "604800",
+      }),
+    ).toEqual({
+      ok: true,
+      datos: {
+        cupo: 3,
+        aporte: 10_0000000n,
+        duracion: 604800n,
+        aportesPorTurno: 4,
+        espera: 604800n,
+      },
     });
   });
 
@@ -334,10 +364,67 @@ describe("validarNuevaRonda", () => {
   it("rechaza cuota inválida o buchaca que excede i64", () => {
     expect(validarNuevaRonda({ cupo: "3", cuota: "0", duracion: "600" }).ok).toBe(false);
     expect(validarNuevaRonda({ cupo: "2", cuota: "900000000000", duracion: "600" }).ok).toBe(false);
+    expect(
+      validarNuevaRonda({
+        cupo: "2",
+        cuota: "200000000000",
+        duracion: "600",
+        aportesPorTurno: "3",
+      }).ok,
+    ).toBe(false);
   });
 
-  it("rechaza plazo fuera de rango", () => {
+  it("rechaza plazo, aportes por turno o espera fuera de rango", () => {
     expect(validarNuevaRonda({ cupo: "3", cuota: "10", duracion: "59" }).ok).toBe(false);
     expect(validarNuevaRonda({ cupo: "3", cuota: "10", duracion: "1209601" }).ok).toBe(false);
+    expect(
+      validarNuevaRonda({ cupo: "3", cuota: "10", duracion: "600", aportesPorTurno: "0" }).ok,
+    ).toBe(false);
+    expect(
+      validarNuevaRonda({ cupo: "3", cuota: "10", duracion: "600", aportesPorTurno: "25" }).ok,
+    ).toBe(false);
+    expect(
+      validarNuevaRonda({ cupo: "3", cuota: "10", duracion: "600", espera: "1209601" }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("periodo y frecuencia de ahorro", () => {
+  it("normaliza contratos anteriores sin campos nuevos con valores por defecto", () => {
+    const r = normalizarResumen({ estado: "Activa", ha_pagado: true, cupo: 3, aporte: 10n });
+    expect(r.aportesPorTurno).toBe(1);
+    expect(r.paso).toBe(0);
+    expect(r.espera).toBe(0n);
+    expect(r.apertura).toBe(0n);
+    expect(r.aportesMiembro).toBe(1);
+  });
+
+  it("multiplica el pozo y entregas por aportesPorTurno", () => {
+    const r = tanda({ ronda: 1, aportesPorTurno: 4 });
+    expect(montoPozo(r)).toBe(120_0000000n);
+    expect(entregasRealizadas(r)).toEqual([
+      { ronda: 1, receptor: CAROL, monto: 120_0000000n, aportes: 12 },
+    ]);
+  });
+
+  it("espera apertura antes de habilitar aportar y permite reclamar aportes previos tras el plazo", () => {
+    const esperando = tanda({ aportesPorTurno: 4, paso: 1, espera: 3600n, apertura: 5000n });
+    expect(segundosHastaApertura(esperando, 4500)).toBe(500);
+    expect(sugerirAccion(esperando, ANA, 4500)).toEqual({
+      accion: null,
+      motivo: "El próximo aporte abre en 8 min 20 s.",
+    });
+
+    const vencidoConAportesPrevios = tanda({
+      aportesPorTurno: 4,
+      paso: 1,
+      haPagado: false,
+      aportesMiembro: 1,
+    });
+    expect(sugerirAccion(vencidoConAportesPrevios, ANA, 5000).accion).toBe("reclamar");
+    expect(
+      sugerirAccion(tanda({ estado: "Abortada", haPagado: false, aportesMiembro: 1 }), ANA, 5000)
+        .accion,
+    ).toBe("reclamar");
   });
 });

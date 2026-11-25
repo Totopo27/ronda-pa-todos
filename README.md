@@ -1,22 +1,21 @@
 # RondaPa' Todos
 
-Una ronda de ahorro circular en Stellar: un grupo de personas aporta la misma cuota cada semana, y cada semana una distinta se lleva la buchaca completa. El orden de cobro se rifa una sola vez, al llenarse el cupo, y nadie —ni quien despliega el contrato— puede cambiarlo después.
+Una ronda de ahorro circular en Stellar para construir el hábito de ahorrar entre compas: cada participante aporta una cuota periódica, la rifa le suma la emoción de poder sacarse la buchaca grande, y las reglas viven en un contrato sin administrador que nadie —ni quien despliega— puede tocar después.
 
 - **Red:** Stellar testnet
-- **Probar en vivo (web):** [ronda.pajarobobo.xyz](https://ronda.pajarobobo.xyz/?contrato=CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX)
-
-- **Contrato para la prueba con usuarios:** [`CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX`](https://stellar.expert/explorer/testnet/contract/CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX) — inscripción abierta, cupo 3, cuota 10 XLM y plazo de una semana por ronda
+- **Probar en vivo (web):** [ronda.pajarobobo.xyz](https://ronda.pajarobobo.xyz) — permite **crear tu propia ronda nueva** en un clic desde el navegador o abrir una existente con `?contrato=C...`
+- **Ronda de ejemplo (en curso):** [`CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX`](https://stellar.expert/explorer/testnet/contract/CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX) — cupo 3, cuota 10 XLM, plazo de una semana (cupo ya lleno, en turno 3 de 3)
 - **Contrato de la corrida documentada en §7:** [`CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4`](https://stellar.expert/explorer/testnet/contract/CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4) — abortado; se conserva solo como evidencia histórica
-- **Wasm hash:** `8bd7c0717fb5323233d18edbd7b1b7c37bc3d6d5e17e7aff643c7270e37849be`
-- **SDK:** Soroban 29.0.1 · **Pruebas:** 21/21 en verde
+- **Wasm hash actual:** `d5b58239363a6e99819f93053975ec262cbccf11f2b39c39b4289ef8bdeb6523` (tx de subida [`de259bcc…`](https://stellar.expert/explorer/testnet/tx/de259bcc97cffa78023d8151d56a39b0fb2a623103d02716f0842d7bb2c1b276); la corrida histórica de §7 usó `8bd7c071…849be`)
+- **SDK:** Soroban 29.0.1 · **Pruebas:** 33/33 en verde (contrato) · 55/55 en verde (interfaz)
 
 ---
 
 ## 1. El problema
 
-Cuando un grupo de compas o gente de confianza —familia, vecinos, compañeros del brete— acuerda poner una cuota cada quincena o cada semana para **armar una buchaca** y ahorrar, siempre pasa lo mismo: alguien tiene que guardar la plata de todos.
+A mucha gente le cuesta sostener una **cultura del ahorro** por cuenta propia: ahorrar solo requiere constancia y es fácil romper la alcancía antes de tiempo. Por eso en Costa Rica y en media Latinoamérica funcionan las rondas entre compas, familia o compañeros de brete: ponen una cuota periódica, el compromiso social ayuda a mantener el hábito y el componente de **azar** —poder llevarse una **buchaca grande** antes que los demás— vuelve el ahorro más interactivo y atractivo.
 
-Y a veces, ese alguien es una persona que puede:
+Pero la versión tradicional tiene dos puntos de quiebre. El primero es que alguien tiene que guardar la plata de todos, y una persona puede:
 
 - quedarse con lo ahorrado y desaparecer,
 - entregarlo tarde o en tractos,
@@ -26,9 +25,9 @@ Y a veces, ese alguien es una persona que puede:
 
 El problema no es la desconfianza entre los miembros. El problema es que el acuerdo necesita un custodio, y el custodio es el eslabón débil: es un punto único de falla que además concentra toda la tentación.
 
-A esto se suma un segundo problema, más silencioso, que siempre aparece en estas dinámicas: **el orden de cobro se negocia**. Quien organiza decide quién va primero, y esa decisión tiene un valor económico real. Cobrar primero es recibir un préstamo sin intereses; cobrar de último es prestarle plata gratis a los demás. Si el orden lo elige una persona, la ronda tiene un árbitro con interés propio.
+A esto se suma el segundo problema: **el orden de cobro se negocia**. Quien organiza decide quién va primero, y esa decisión tiene un valor económico real. Cobrar primero es recibir un préstamo sin intereses; cobrar de último es prestarle plata gratis a los demás. Si el orden lo elige una persona, la ronda tiene un árbitro con interés propio.
 
-**Por qué este problema y no otro.** Porque es un caso puntual que, aunque parece sencillo, es muy cotidiano y comprobable en una sola sesión. Cualquiera que haya estado en una dinámica así, o conozca a alguien que participó, sabe que siempre se presta para enredos. Por eso, la solución del contrato se resume en una sola idea: guardar la plata y repartirla en un orden que nadie eligió. El proyecto ya está publicado en la web para que cualquiera pueda probarlo, desplegado en testnet y configurado inicialmente para trabajar con tres cuentas.
+**Por qué este problema y no otro.** Porque ataca un reto real de ahorro cotidiano con reglas verificables en una sola sesión: ahorrar en grupo de forma constante, con una rifa transparente que nadie manipula para sacar la buchaca grande. El proyecto ya está publicado en [ronda.pajarobobo.xyz](https://ronda.pajarobobo.xyz) en testnet, listo para que cualquiera cree una ronda nueva vacía desde su navegador o pruebe una con el cupo, cuota y ritmo que prefiera.
 
 ## 2. La idea
 
@@ -36,9 +35,9 @@ Poner las reglas en un contrato y quitar al custodio del medio.
 
 El contrato **es** la buchaca. La plata entra y sale según reglas escritas antes de que nadie ponga un cinco, y ninguna de esas reglas se puede tocar después:
 
-- cuántos campos tiene la ronda (el cupo),
-- cuánto pone cada uno (la cuota),
-- cuántas vueltas hay,
+- cuántos campos tiene la ronda (el cupo, de 2 a 50),
+- cuánto pone cada uno por aporte (la cuota),
+- cuántos aportes reúne cada turno (`aportes_por_turno`, de 1 a 24) y el ritmo entre ellos (`espera`, de 0 a 14 días) — por defecto en modo inmediato (1 aporte por turno, sin espera) para probar rápido, o personalizable para metas de 1 a 3 meses con aportes semanales o bisemanales,
 - **y en qué orden cobra cada quien.**
 
 Ese orden no lo decide nadie a dedo. Se rifa una única vez, en cadena, cuando se ocupa el último campo del cupo. El contrato no tiene admin: no existe la función que podría cambiar nada de esto.
@@ -74,25 +73,25 @@ Desde ese momento la ronda está activa y empieza a correr el reloj.
 
 ### 3.3 Los turnos de cobro
 
-Cada vuelta funciona igual:
+Cada turno funciona igual (con modo inmediato por defecto `aportes_por_turno = 1, espera = 0`, o acumulando varios aportes en el tiempo):
 
-1. Cada miembro llama `aportar()`. El contrato transfiere la cuota del miembro a sí mismo vía el Stellar Asset Contract. Nadie puede pagar dos veces la misma ronda.
-2. Cuando entra el último aporte, el contrato transfiere **la buchaca completa** (`cuota × N`) a `Orden[ronda]`.
+1. En cada periodo del turno, cada miembro llama `aportar()`. El contrato transfiere la cuota al contrato vía el Stellar Asset Contract. Nadie puede pagar dos veces el mismo periodo; si `espera > 0`, el siguiente periodo permanece cerrado (`AporteAunNoAbierto`) hasta cumplir el intervalo configurado.
+2. Cuando entran todos los aportes del turno (`cupo × aportes_por_turno`), el contrato transfiere **la buchaca completa** (`cuota × cupo × aportes_por_turno`) a `Orden[ronda]`. Por ejemplo, 3 compas ahorrando durante 3 meses con 1 aporte semanal (`aportes_por_turno = 4`) juntan cada mes una buchaca grande de `12 × cuota`.
 3. La ronda avanza al siguiente turno y el reloj se reinicia.
 
-Después de N vueltas, todos cobraron exactamente una vez. Cada miembro puso N cuotas y recibió una buchaca de N cuotas: el neto es cero para todos. Lo único que cambió es *cuándo* le tocó agarrar la plata.
+Después de N turnos, todos cobraron exactamente una vez. Cada miembro puso `N × aportes_por_turno` cuotas y recibió una buchaca equivalente: el neto es cero para todos. Lo único que cambió es *cuándo* le tocó agarrar la buchaca.
 
 ### 3.4 El plazo y la salida de emergencia
 
 Una ronda real tiene un riesgo que ningún contrato elimina: que alguien se eche para atrás. Si en la vuelta 4 alguien deja de aportar, los que ya cobraron no van a seguir poniendo plata por gusto.
 
-Por eso cada turno tiene un plazo (`duracion`, en segundos). Si el plazo vence sin que se junte toda la buchaca, cualquier miembro que **sí pagó ese turno** puede llamar:
+Por eso cada periodo tiene un plazo (`duracion`, en segundos). Si el plazo vence sin que se complete el aporte actual, cualquier miembro que **haya puesto al menos un aporte en ese turno** puede llamar:
 
 ```rust
 pub fn reclamar(env: Env, miembro: Address) -> Result<i128, Error>
 ```
 
-Le devuelve su cuota íntegra, y el primer reembolso congela la ronda en estado `Abortada`. No hay rescate parcial ni negociación: la ronda se cierra y cada uno recupera lo que puso en ese turno. Quien ya había cobrado en turnos anteriores se queda con lo cobrado.
+Le devuelve **todas las cuotas que acumuló en el turno en curso** (`aportes_en_turno × cuota`), y el primer reembolso congela la ronda en estado `Abortada`. No hay rescate parcial ni negociación: la ronda se cierra y cada uno recupera lo que puso en ese turno. Quien ya había cobrado en turnos anteriores se queda con lo cobrado.
 
 ## 4. La decisión de diseño que más importa: sin admin
 
@@ -100,11 +99,11 @@ El contrato **no tiene administrador**. No es un olvido, es el punto.
 
 La clase de contratos del bootcamp presenta el patrón opuesto —un `admin` guardado en el storage del que cuelgan las funciones privilegiadas—; aquí se quitó a propósito. El detalle de qué viene de la clase y qué no está en §12.
 
-No existe función para meter o sacar miembros, ni para cambiar la cuota, ni para reordenar la rifa, ni para pausar, ni para sacar fondos. El ABI exporta 15 funciones y ninguna de ellas puede alterar una regla después del despliegue:
+No existe función para meter o sacar miembros, ni para cambiar la cuota, ni para reordenar la rifa, ni para pausar, ni para sacar fondos. El ABI exporta 16 funciones y ninguna de ellas puede alterar una regla después del despliegue:
 
 ```
-__constructor  a_quien_toca  aportar  aporte  cupo  duracion  estado
-ha_pagado  inscritos  miembros  orden  reclamar  ronda  terminada  unirse
+__constructor  a_quien_toca  aportar  aporte  cupo  duracion  estado  ha_pagado
+inscritos  miembros  orden  reclamar  resumen  ronda  terminada  unirse
 ```
 
 Esto tiene un costo, y hay que decirlo claro: **sin admin, un error en los parámetros es irreversible**. Si despliegas con una cuota equivocada o con un cupo que no era, no hay arreglo; hay que desplegar otro contrato y volver a empezar. Es el precio de que nadie —tampoco yo— pueda tocar la plata ni las reglas.
@@ -134,44 +133,20 @@ Si algún día eso importa, el camino es un esquema commit-reveal: cada miembro 
 
 ## 6. Pruebas
 
-21 pruebas de host (`Env::default()`, sin red), una por regla:
+33 pruebas de host (`Env::default()`, sin red), una por regla:
 
 ```sh
 cargo test
-```
-
-```
-running 21 tests
-test test::constructor_rechaza_cupo_menor_a_dos - should panic ... ok
-test test::constructor_rechaza_aporte_invalido - should panic ... ok
-test test::constructor_rechaza_duracion_invalida - should panic ... ok
-test test::unirse_sin_firma_falla ... ok
-test test::cualquier_wallet_ocupa_un_lugar_libre ... ok
-test test::no_se_puede_unir_dos_veces ... ok
-test test::unirse_rechaza_cupo_lleno ... ok
-test test::el_ultimo_unirse_sortea_y_activa ... ok
-test test::aportar_antes_de_llenar_el_cupo_falla ... ok
-test test::aporte_transfiere_al_contrato ... ok
-test test::no_se_puede_pagar_dos_veces_la_misma_ronda ... ok
-test test::ronda_completa_paga_al_miembro_de_turno ... ok
-test test::tanda_completa_paga_a_todos_una_vez ... ok
-test test::aportar_despues_de_terminar_falla ... ok
-test test::reclamar_antes_del_plazo_falla ... ok
-test test::reclamar_devuelve_el_aporte_y_aborta ... ok
-test test::no_se_reclama_dos_veces ... ok
-test test::ha_pagado_refleja_la_ronda ... ok
-test test::resumen_durante_la_inscripcion ... ok
-test test::resumen_durante_las_rondas ... ok
-test test::resumen_marca_la_tanda_terminada ... ok
-
-test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+# running 33 tests -> test result: ok. 33 passed; 0 failed; 0 ignored
 ```
 
 | Prueba | Qué garantiza |
 | --- | --- |
-| `constructor_rechaza_cupo_menor_a_dos` | Una ronda de una persona no es una ronda |
-| `constructor_rechaza_aporte_invalido` | No se puede desplegar con cuota cero o negativa |
-| `constructor_rechaza_duracion_invalida` | Sin plazo no hay salida de emergencia |
+| `constructor_rechaza_cupo_menor_a_dos` / `constructor_rechaza_cupo_mayor_a_maximo` | El cupo queda acotado entre 2 y 50 campos |
+| `constructor_rechaza_aporte_invalido` / `constructor_rechaza_overflow_pozo` | No se puede desplegar con cuota <= 0 ni con buchaca que desborde |
+| `constructor_rechaza_duracion_invalida` / `_menor_a_minima` / `_mayor_a_maxima` | El plazo queda acotado entre 60 s y 14 días |
+| `constructor_rechaza_aportes_por_turno_invalido` / `_mayor_a_maximo` | Los aportes por turno quedan acotados entre 1 y 24 |
+| `constructor_rechaza_espera_mayor_a_maxima` | La espera entre aportes no supera 14 días |
 | `unirse_sin_firma_falla` | La inscripción exige la firma del miembro, no la de otro |
 | `cualquier_wallet_ocupa_un_lugar_libre` | El contrato nace vacío y acepta a cualquier cuenta mientras haya campo |
 | `no_se_puede_unir_dos_veces` | Una firma, un campo: no se infla el conteo |
@@ -190,6 +165,11 @@ test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 | `resumen_durante_la_inscripcion` | Antes de arrancar, `resumen` reporta el cupo, los inscritos y el orden vacío |
 | `resumen_durante_las_rondas` | Con la ronda en marcha, `resumen` dice el turno, a quién toca y si pagué |
 | `resumen_marca_la_tanda_terminada` | Al terminar, `resumen` lo refleja y ya no hay turno |
+| `eventos_se_emiten_durante_ciclo` | Cada inscripción, aporte, buchaca y fin emite su evento |
+| `multiples_aportes_por_turno_acumulan_y_pagan_pozo_completo` | Varios aportes por turno acumulan hasta entregar la buchaca grande completa |
+| `reclamar_devuelve_todos_los_aportes_del_turno_incompleto` | Al abortar, `reclamar` devuelve todas las cuotas acumuladas en ese turno |
+| `espera_bloquea_siguiente_aporte_hasta_apertura` | Cuando `espera > 0`, el contrato bloquea el siguiente aporte hasta `apertura` |
+| `resumen_expone_campos_de_periodo` | `resumen` reporta `aportes_por_turno`, `paso`, `espera`, `apertura` y `aportes_miembro` |
 
 La prueba de la rifa verifica **propiedades**, no una secuencia: que el resultado sea una permutación de la lista original y que `a_quien_toca()` coincida con `Orden[0]`. Fijar la secuencia concreta sería frágil —en los tests el PRNG del host se siembra en cero— y no probaría nada sobre la calidad del sorteo.
 
@@ -291,7 +271,9 @@ stellar contract deploy \
   -- --token "$SAC" \
      --aporte 100000000 \
      --duracion 604800 \
-     --cupo 3
+     --cupo 3 \
+     --aportes_por_turno 1 \
+     --espera 0
 ```
 
 No hay lista de miembros: el contrato nace vacío y espera `cupo` firmas. Cada persona ocupa su campo firmando con su propia llave:
@@ -310,7 +292,11 @@ stellar contract invoke --id ronda-pa-todos --source-account <cualquiera> --netw
 
 ### La interfaz para el grupo
 
-Hay una interfaz estática en `app/` para que cada compa firme con su propia wallet, sin tocar la CLI. Se abre con `?contrato=EL_ID` y no necesita backend. Conecta directamente con Varial (antes Freighter, vía `@stellar/freighter-api`) y habilita WalletConnect por QR cuando `VITE_WALLETCONNECT_PROJECT_ID` tiene un Project ID de Reown. La interfaz también enlaza Friendbot con la cuenta conectada para que cada participante pueda pedir XLM de testnet.
+Hay una interfaz estática publicada en [ronda.pajarobobo.xyz](https://ronda.pajarobobo.xyz) (`app/`) para que cualquiera pueda crear una ronda nueva desde el navegador o abrir una existente con `?contrato=EL_ID` y firmar con su propia wallet, sin tocar la CLI ni usar backend.
+
+- **Crear ronda nueva directo en la web:** por defecto arranca en modo inmediato (`1` aporte por turno, sin espera) para probar en minutos, e incluye un desplegable opcional para personalizar periodo y frecuencia (p. ej. 4, 8, 12 o 24 aportes por turno y ritmo de espera).
+- **Transparencia en cada turno:** muestra la barra de aportes reunidos, quién aportó y la sección **Buchacas entregadas** cuando se completa un turno.
+- **Wallets y fondeo:** conecta directamente con Varial (antes Freighter, vía `@stellar/freighter-api`), habilita WalletConnect por QR cuando `VITE_WALLETCONNECT_PROJECT_ID` tiene un Project ID de Reown y enlaza Friendbot con la cuenta conectada para pedir XLM de testnet.
 
 ```sh
 cd app
@@ -319,7 +305,7 @@ cp .env.example .env.local  # añade el Project ID de Reown para WalletConnect
 npm run dev
 ```
 
-Para desplegar una ronda nueva con el cupo del grupo:
+Para desplegar una ronda nueva por CLI (con `-AportesPorTurno` y `-EsperaSegundos` opcionales):
 
 ```powershell
 .\scripts\desplegar.ps1 -Cupo 3 -Cuenta <tu-identidad> -Aporte 10
@@ -343,9 +329,7 @@ Prefiero que los sepas por mí y no que los descubras por tu cuenta.
 
 - **Commit-reveal para la rifa** (§5), si el riesgo de validador deja de ser teórico.
 - **Turnos con cobro automático por tiempo** en vez de esperar el último aporte, para que un solo moroso no congele el cobro de todos.
-- **Historial de la ronda en eventos**, para que la app cliente muestre quién pagó qué sin consultar cada clave de almacenamiento.
 - **Un plazo de inscripción o un código de invitación** (§9.5 y §9.6): hoy el enlace es la única credencial, y un cupo que no se llena deja el contrato esperando para siempre.
-- **Publicar la interfaz**: el build de `app/` es estático y funciona en GitHub Pages, Vercel o cualquier hosting; falta decidir dónde.
 
 ## 11. Estructura del repo
 
@@ -355,8 +339,8 @@ contracts/ronda_pa_todos/
 ├── Cargo.toml
 ├── Makefile
 └── src/
-    ├── lib.rs                      contrato completo (15 funciones exportadas)
-    └── test.rs                     21 pruebas de host
+    ├── lib.rs                      contrato completo (16 funciones exportadas)
+    └── test.rs                     33 pruebas de host
 app/                                interfaz estática (Vite + TypeScript)
 scripts/desplegar.ps1               despliegue de una ronda nueva en testnet
 ```
@@ -369,10 +353,10 @@ El andamiaje del contrato viene de la clase de contratos del bootcamp (Clase 2, 
 | --- | --- |
 | Rust + SDK de Soroban, compilar a `wasm32v1-none` | `Cargo.toml`, `AGENTS.md` |
 | Storage `instance` / `persistent` y el TTL con archivado | `lib.rs`, `TTL_UMBRAL` y `extend_ttl` |
-| Constructor que corre antes del despliegue (`__constructor`) | `lib.rs:100` |
+| Constructor que corre antes del despliegue (`__constructor`) | `lib.rs:171` |
 | `require_auth` con la regla de que firma quien pierde algo | `unirse`, `aportar`, `reclamar` |
-| Errores tipados con `#[contracterror]` | `lib.rs:74` (`Error`) |
-| Tests con `Env::default()`, `register`, cliente y `mock_all_auths` | `test.rs`, 21 pruebas |
+| Errores tipados con `#[contracterror]` | `lib.rs:142` (`Error`) |
+| Tests con `Env::default()`, `register`, cliente y `mock_all_auths` | `test.rs`, 33 pruebas |
 | Desplegar e invocar desde la CLI | `scripts/desplegar.ps1` |
 
 El TTL no está de adorno: en la clase se contó el caso de un contrato propio que se archivó y empezó a cobrarles de más a sus usuarios al restaurarlo. Por eso cada escritura extiende el TTL en vez de confiar en el default.
