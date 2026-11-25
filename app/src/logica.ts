@@ -193,10 +193,16 @@ export function sugerirAccion(
 
   if (estado === "Abortada") {
     if (r.yaDevuelto) {
-      return { accion: null, motivo: "La ronda se abortó y ya recuperaste tu aporte." };
+      return { accion: null, motivo: "La ronda se abortó y ya recuperaste lo que aportaste en este turno." };
     }
     if (r.haPagado || r.aportesMiembro > 0) {
-      return { accion: "reclamar", motivo: "La ronda se abortó. Recupera tu aporte." };
+      return {
+        accion: "reclamar",
+        motivo:
+          r.aportesMiembro > 1
+            ? "La ronda se abortó. Recupera los aportes que pusiste en este turno."
+            : "La ronda se abortó. Recupera tu aporte.",
+      };
     }
     return {
       accion: null,
@@ -221,7 +227,10 @@ export function sugerirAccion(
     if (!vigente) {
       return {
         accion: "reclamar",
-        motivo: "El plazo venció y no se juntó la buchaca de este turno. Puedes recuperar tu aporte.",
+        motivo:
+          r.aportesMiembro > 1
+            ? "El plazo venció y no se juntó la buchaca de este turno. Puedes recuperar todos tus aportes de este turno."
+            : "El plazo venció y no se juntó la buchaca de este turno. Puedes recuperar tu aporte.",
         aviso: "Si reclamas, la ronda se aborta para todos y nadie más cobra su buchaca.",
       };
     }
@@ -246,7 +255,7 @@ export function sugerirAccion(
       accion: "aportar",
       motivo: "El plazo de este turno ya venció, pero nadie ha reclamado todavía.",
       aviso:
-        "Si aportas ahora y el turno no se completa, recuperarás tu aporte con Reclamar.",
+        "Si aportas ahora y el turno no se completa, podrás recuperar tu aporte con «Recuperar mi aporte».",
     };
   }
   return { accion: "aportar", motivo: "Falta tu aporte de este turno." };
@@ -326,13 +335,13 @@ export function validarNuevaRonda(entrada: {
 
   const durTxt = entrada.duracion.trim();
   if (!/^\d+$/.test(durTxt)) {
-    return { ok: false, error: "El plazo por turno debe ser un número entero en segundos." };
+    return { ok: false, error: "El plazo límite debe ser un número entero en segundos." };
   }
   const duracion = BigInt(durTxt);
   if (duracion < MIN_DURACION || duracion > MAX_DURACION) {
     return {
       ok: false,
-      error: "El plazo por turno debe estar entre 60 segundos y 14 días (1 209 600 s).",
+      error: "El plazo límite debe estar entre 60 segundos y 14 días (1 209 600 s).",
     };
   }
 
@@ -376,14 +385,14 @@ export function enlaceFriendbot(direccion: string): string {
 }
 
 const ERRORES: Record<number, string> = {
-  1: "El cupo de la ronda tiene que ser al menos 2 (una ronda de una persona no es una ronda).",
-  2: "La cuota tiene que ser mayor que cero.",
-  3: "El plazo tiene que ser mayor que cero.",
+  1: "El cupo de la ronda tiene que estar entre 2 y 50 campos.",
+  2: "La cuota tiene que ser mayor que cero y la buchaca total no puede desbordar el límite del contrato.",
+  3: "El plazo límite tiene que estar entre 60 segundos y 14 días (1 209 600 s).",
   4: "Tu cuenta no está entre los miembros de esta ronda.",
   5: "Esa cuenta ya ocupó un campo en esta ronda.",
   6: "La inscripción ya cerró: el cupo está lleno y la ronda está en marcha.",
   7: "La ronda todavía no arrancó: faltan firmas de inscripción.",
-  8: "Esa cuenta ya aportó este turno.",
+  8: "Esa cuenta ya aportó en este ciclo.",
   9: "La ronda ya terminó o se abortó; no admite más aportes.",
   10: "Todavía no venció el plazo de este turno.",
   11: "Esa cuenta no aportó el turno en curso, así que no tiene nada que reclamar.",

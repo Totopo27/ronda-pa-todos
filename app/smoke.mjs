@@ -39,15 +39,27 @@ const cliente = await contract.Client.from({
 // el host con `Error(WasmVm, UnexpectedSize)`.
 const { result } = await cliente.resumen({ miembro: undefined });
 
+const estadoTag = result.estado?.tag ?? result.estado;
+const aportesPorTurno = result.aportes_por_turno ?? 1;
+const paso = result.paso ?? 0;
+const espera = result.espera ?? 0;
+const apertura = result.apertura ?? 0;
+const turnoTexto =
+  estadoTag === "Inscripcion"
+    ? "sin arrancar"
+    : `${Math.min(Number(result.ronda) + 1, Number(result.cupo))} de ${result.cupo}`;
+
 console.log(`Contrato ${id}`);
-console.log(`  estado:    ${result.estado?.tag ?? result.estado}`);
-console.log(`  ronda:     ${result.ronda} de ${result.cupo}`);
-console.log(`  cupo:      ${result.inscritos} de ${result.cupo} lugares ocupados`);
-console.log(`  aporte:    ${result.aporte} (unidades mínimas del token)`);
-console.log(`  duracion:  ${result.duracion} s`);
-console.log(`  inicio:    ${Number(result.inicio) === 0 ? "sin arrancar" : result.inicio}`);
-console.log(`  toca a:    ${result.a_quien_toca ? acortar(result.a_quien_toca) : "nadie"}`);
-console.log(`  orden:     ${result.orden.length === 0 ? "(sin sortear)" : result.orden.map(acortar).join(" → ")}`);
+console.log(`  estado:         ${estadoTag}`);
+console.log(`  turno:          ${turnoTexto}`);
+console.log(`  cupo:           ${result.inscritos} de ${result.cupo} campos ocupados`);
+console.log(`  aporte:         ${result.aporte} (unidades mínimas del token)`);
+console.log(`  aportes/turno:  ${aportesPorTurno} (paso actual ${paso})`);
+console.log(`  espera:         ${espera} s (apertura ${Number(apertura) === 0 ? "abierta" : apertura})`);
+console.log(`  duracion:       ${result.duracion} s`);
+console.log(`  inicio:         ${Number(result.inicio) === 0 ? "sin arrancar" : result.inicio}`);
+console.log(`  toca a:         ${result.a_quien_toca ? acortar(result.a_quien_toca) : "nadie"}`);
+console.log(`  orden:          ${result.orden.length === 0 ? "(sin rifar)" : result.orden.map(acortar).join(" → ")}`);
 
 if (result.token) {
   const token = await contract.Client.from({

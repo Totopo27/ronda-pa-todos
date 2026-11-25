@@ -31,7 +31,7 @@ despliega uno nuevo directamente desde la página principal.
 
 ## Requisitos
 
-- Node 20 o superior.
+- Node 22.x (o `^20.19` / `>=22.12`, requerido por Vite 8 y fijado en `engines`).
 - Una wallet Stellar compatible, configurada en **testnet**.
 - Para WalletConnect, un Project ID gratuito de [Reown Cloud](https://cloud.reown.com/).
 
@@ -83,9 +83,9 @@ Variables de entorno (opcional, solo para firmar desde móvil):
 
 El contrato **no** va en una variable: entra por `?contrato=C...` o se instancia en el navegador.
 
-`vercel.json` añade cabeceras de seguridad y cache inmutable para `/assets/*` (Vite pone un
-hash en cada nombre). No lleva `rewrites`: la app no tiene rutas de cliente, todo viaja por
-query string.
+`vercel.json` añade cabeceras de seguridad, desactiva la caché en `/` y `/index.html`, y deja
+cache inmutable para `/assets/*` (Vite pone un hash en cada nombre). No lleva `rewrites`: la app no
+tiene rutas de cliente, todo viaja por query string.
 
 ## Flujo completo para un grupo nuevo
 
@@ -132,7 +132,7 @@ el constructor y no se pueden cambiar después.
    automáticamente al destinatario correspondiente.
 
 Si alguien deja de aportar y vence el plazo, quien ya aportó puede recuperar todo lo que puso en
-ese turno con **Reclamar**. La primera devolución congela la ronda en `Abortada`.
+ese turno con **Recuperar mi aporte** (`reclamar`). La primera devolución congela la ronda en `Abortada`.
 
 ## Si algo sale mal
 
@@ -140,9 +140,9 @@ ese turno con **Reclamar**. La primera devolución congela la ronda en `Abortada
 - **`NoActiva` / `InscripcionCerrada`**: la ronda aún no arrancó o ya arrancó. `InscripcionCerrada`
   también es la respuesta de `unirse` cuando el cupo ya está lleno.
 - **`YaInscrito`**: esa cuenta ya ocupó un campo en esta ronda.
-- **`CupoInvalido` / `AportesPorTurnoInvalido` / `EsperaInvalida`**: algún parámetro del
-  despliegue está fuera de los límites (`cupo` 2..50, `aportes_por_turno` 1..24, `espera`/`duracion`
-  hasta 14 días).
+- **`CupoInvalido` / `DuracionInvalida` / `AportesPorTurnoInvalido` / `EsperaInvalida`**: algún
+  parámetro del despliegue está fuera de los límites (`cupo` 2..50, `aportes_por_turno` 1..24,
+  `duracion` `60` s a 14 días, `espera` `0` a 14 días).
 - **`AporteAunNoAbierto`**: la ronda usa espera entre aportes y todavía no llega la fecha de
   apertura del siguiente periodo.
 - **`NoHaPagado`**: intentaste recuperar el aporte sin haber aportado ese turno, o el registro

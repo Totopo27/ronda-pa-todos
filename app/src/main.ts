@@ -194,9 +194,9 @@ async function conectarBilletera(): Promise<void> {
 /**
  * Vuelve a preguntarle la dirección a la wallet.
  *
- * La app guarda la dirección en memoria y el kit la persiste en localStorage, así
- * que cambiar de cuenta dentro de la misma wallet no rompe nada por sí solo: hay
- * que pedirla de nuevo. Si la wallet no responde sin abrir su ventana, caemos al
+ * La app guarda la dirección en memoria y solo recuerda el proveedor elegido en
+ * localStorage, así que cambiar de cuenta dentro de la misma wallet requiere
+ * pedirla de nuevo. Si la wallet no responde sin abrir su ventana, caemos al
  * selector, que siempre funciona.
  */
 async function cambiarBilletera(): Promise<void> {
@@ -294,7 +294,7 @@ function textoCuenta(r: Resumen): string {
     return "La ronda terminó: todos cobraron su buchaca exactamente una vez.";
   }
   if (r.estado === "Abortada") {
-    return "La ronda se abortó. Quien aportó en este turno puede recuperarlo.";
+    return "La ronda se abortó. Quien aportó en este turno puede recuperar lo que puso.";
   }
   const ronda = Math.min(r.ronda + 1, r.cupo);
   const paso = r.aportesPorTurno > 1 ? ` (aporte ${r.paso + 1} de ${r.aportesPorTurno})` : "";
@@ -304,9 +304,11 @@ function textoCuenta(r: Resumen): string {
   }
   const restante = segundosRestantes(r, ahora());
   if (restante > 0) {
-    return `Quedan ${formatearDuracion(restante)} para que cierre el turno ${ronda} de ${r.cupo}${paso}.`;
+    return r.aportesPorTurno > 1
+      ? `Quedan ${formatearDuracion(restante)} para que cierre este aporte del turno ${ronda} de ${r.cupo}${paso}.`
+      : `Quedan ${formatearDuracion(restante)} para que cierre el turno ${ronda} de ${r.cupo}.`;
   }
-  return `El plazo del turno ${ronda} ya venció. Quien aportó puede recuperar su plata; quien no aportó ya no cobrará su buchaca.`;
+  return `El plazo del turno ${ronda}${paso} ya venció. Quien ya aportó puede recuperar su aporte (eso aborta la ronda), o todavía se puede completar mientras nadie reclame.`;
 }
 
 function panelTanda(r: Resumen): string {
@@ -444,10 +446,29 @@ function panelMiembros(r: Resumen): string {
   const items = r.miembros
     .map((m) => {
       const yo = m === ui.yo ? ' <span class="tu">tú</span>' : "";
-      const pago = mostrarPago && ui.pagadosRonda?.has(m);
-      const estadoPago = mostrarPago
-        ? ` <span class="estado-pago ${pago ? "pago" : "pendiente"}">${pago ? "aportó" : "pendiente"}</span>`
-        : "";
+      const pago = mostrarPago && Boolean(ui.pagadosRonda?.has(m));
+      let estadoPago = "";
+      if (mostrarPago) {
+        if (r.aportesPorTurno <= 1) {
+          estadoPago = ` <span class="estado-pago ${pago ? "pago" : "pendiente"}">${pago ? "aportó" : "pendiente"}</span>`;
+        } else {
+          const aportesTurno = r.paso + (pago ? 1 : 0);
+          if (r.estado === "Abortada") {
+            const clase = aportesTurno > 0 ? "pago" : "pendiente";
+            const texto =
+              aportesTurno > 0 ? `aportó (${aportesTurno}/${r.aportesPorTurno})` : "sin aportes";
+            estadoPago = ` <span class="estado-pago ${clase}">${texto}</span>`;
+          } else {
+            const clase = pago ? "pago" : "pendiente";
+            const texto = pago
+              ? `aportó (${aportesTurno}/${r.aportesPorTurno})`
+              : r.paso > 0
+                ? `pendiente (${aportesTurno}/${r.aportesPorTurno})`
+                : "pendiente";
+            estadoPago = ` <span class="estado-pago ${clase}">${texto}</span>`;
+          }
+        }
+      }
       return `<li class="${m === ui.yo ? "yo" : ""}"><code>${esc(acortarDireccion(m))}</code>${yo}${estadoPago}</li>`;
     })
     .join("");
@@ -620,7 +641,7 @@ function panelIntro(): string {
           </div>
           <p class="pie-panel">
             El ritmo controla cuándo abre el siguiente aporte; el plazo límite sigue protegiendo con
-            Reclamar si alguien deja de pagar.
+            Recuperar mi aporte si alguien deja de pagar.
           </p>
         </details>
         <p class="resumen-crear" id="resumen-crear">${esc(textoResumenCrear())}</p>
@@ -650,8 +671,8 @@ stellar contract deploy \\
 
 # 2. Abre la página con ?contrato=EL_ID_QUE_DEVOLVIO</pre>
         <p class="pie-panel">
-          Cada grupo necesita su propio despliegue: la cuota, el plazo y el cupo se fijan al
-          crear el contrato y no se pueden cambiar después.
+          Cada grupo necesita su propio despliegue: la cuota, el plazo, el cupo y el ritmo de
+          aportes se fijan al crear el contrato y no se pueden cambiar después.
         </p>
       </details>
     </section>
@@ -682,7 +703,7 @@ function pintarMensajes(): void {
       ? ` <a href="${esc(enlaceTransaccion(ui.ultimaTx))}" target="_blank" rel="noreferrer noopener">Verla en Stellar Expert</a>`
       : "";
     partes.push(
-      `<p class="exito">Turno ${e.ronda} completado: aportaron los ${e.aportes}/${e.aportes} miembros y ya se envió la buchaca de ${esc(textoMonto(e.monto))} a <code>${esc(acortarDireccion(e.receptor))}</code>${tu}.${enlace}</p>`,
+      `<p class="exito">Turno ${e.ronda} completado: se reunieron los ${e.aportes}/${e.aportes} aportes y ya se envió la buchaca de ${esc(textoMonto(e.monto))} a <code>${esc(acortarDireccion(e.receptor))}</code>${tu}.${enlace}</p>`,
     );
   } else if (ui.ultimaTx) {
     partes.push(

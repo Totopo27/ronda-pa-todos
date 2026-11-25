@@ -7,6 +7,8 @@ Soroban smart-contract workspace. The contract lives in `contracts/ronda_pa_todo
 - `Cargo.toml` — workspace root; the contract crate inherits `soroban-sdk` from here
 - `contracts/ronda_pa_todos/src/lib.rs` — contract implementation (`#![no_std]`)
 - `contracts/ronda_pa_todos/src/test.rs` — host-side unit tests
+- `app/` — static Vite + TypeScript web interface
+- `scripts/desplegar.ps1` — testnet deployment helper
 
 ## Build
 
@@ -34,16 +36,20 @@ stellar contract deploy \
   --source-account <identity> \
   --network testnet \
   --alias ronda-pa-todos \
-  -- --token <SAC> --aporte 100000000 --duracion 604800 --cupo 3
+  -- --token <SAC> --aporte 100000000 --duracion 604800 --cupo 3 --aportes_por_turno 1 --espera 0
 ```
 
 Constructor arguments go after `--`. `--token` is the Stellar Asset Contract id for the asset
-the tanda is denominated in (`stellar contract id asset --asset native --network testnet` for
-native XLM). `--cupo` is how many places the tanda has (minimum 2); the contract is deployed
-empty and each wallet takes a place by signing `unirse` itself.
+the ronda is denominated in (`stellar contract id asset --asset native --network testnet` for
+native XLM). Constructor bounds: `--cupo` (`2..=50`, how many campos the ronda has),
+`--aporte` (`> 0` and total buchaca `aporte * cupo * aportes_por_turno` must not overflow),
+`--duracion` (`60..=1_209_600` seconds), `--aportes_por_turno` (`1..=24`), and `--espera`
+(`0..=1_209_600` seconds). The contract is deployed empty and each wallet takes a campo by
+signing `unirse` itself.
 
-The contract has no admin: once deployed, cuota, duracion, cupo and the drawn order cannot
-change. There is no rescue or sweep function, so a wrong parameter means redeploying.
+The contract has no admin: once deployed, cuota, duracion, cupo, aportes_por_turno, espera, and
+the drawn order cannot change. There is no rescue or sweep function, so a wrong parameter means
+redeploying.
 
 ## Further reading
 

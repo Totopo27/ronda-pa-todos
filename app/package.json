@@ -2,7 +2,7 @@
   "name": "ronda-pa-todos-ui",
   "version": "1.0.0",
   "private": true,
-  "description": "Interfaz mínima de RondaPa' Todos: tanda de ahorro circular sobre Stellar testnet.",
+  "description": "Interfaz mínima de RondaPa' Todos: ronda de ahorro circular sobre Stellar testnet.",
   "type": "module",
   "engines": {
     "node": "22.x"

@@ -1,27 +1,27 @@
 ﻿<#
 .SYNOPSIS
-    Despliega una tanda nueva de RondaPa' Todos en Stellar testnet.
+    Despliega una ronda nueva de RondaPa' Todos en Stellar testnet.
 
 .DESCRIPTION
-    Compila el contrato (si hace falta) y despliega con un cupo abierto: el
-    contrato nace sin miembros y cada wallet ocupa un lugar firmando su propia
+    Compila el contrato y despliega con un cupo abierto: el
+    contrato nace sin miembros y cada wallet ocupa un campo firmando su propia
     inscripción desde la interfaz. Imprime el ID del contrato y el enlace listo
     para repartir.
 
-    Cada grupo necesita su propio despliegue: la cuota, el plazo y el cupo se
-    fijan en el constructor y no se pueden cambiar después.
+    Cada grupo necesita su propio despliegue: la cuota, el plazo, el cupo y el
+    ritmo de aportes se fijan en el constructor y no se pueden cambiar después.
 
     SOLO TESTNET. El contrato no está auditado.
 
 .PARAMETER Cupo
-    Cuántos lugares tiene la tanda. Mínimo dos.
+    Cuántos campos tiene la ronda (entre 2 y 50).
 
 .PARAMETER Cuenta
     Identidad de Stellar CLI que paga el despliegue (alias de `stellar keys`),
     no una dirección. Ejemplo: rp-deploy.
 
 .PARAMETER Aporte
-    Cuota por ronda en unidades enteras del token. Por defecto 10.
+    Cuota por aporte en unidades del token (acepta decimales). Por defecto 10.
 
 .PARAMETER Decimales
     Decimales del token, para convertir la cuota a unidades mínimas. XLM usa 7.
@@ -202,7 +202,7 @@ else {
     Write-Host "  <tu-url-de-la-interfaz>?contrato=$id"
 }
 Write-Host ""
-Write-Host "Cualquiera con ese enlace puede ocupar un lugar libre: el contrato no distingue"
+Write-Host "Cualquiera con ese enlace puede ocupar un campo libre: el contrato no distingue"
 Write-Host "invitados de desconocidos. Manda el enlace solo a quien quieras dentro."
 Write-Host ""
 Write-Host "Comprobación de lecturas:"

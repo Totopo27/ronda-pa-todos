@@ -267,6 +267,9 @@ describe("errores", () => {
     for (let codigo = 1; codigo <= 16; codigo++) {
       expect(traducirError(codigo)).not.toMatch(/Error del contrato/);
     }
+    expect(traducirError(1)).toMatch(/entre 2 y 50/i);
+    expect(traducirError(3)).toMatch(/60 segundos y 14 días/i);
+    expect(traducirError(8)).toMatch(/ciclo/i);
     expect(traducirError(10)).toMatch(/plazo/i);
     expect(traducirError(12)).toMatch(/devuelto/i);
     expect(traducirError(99)).toMatch(/código 99/);
@@ -415,6 +418,9 @@ describe("periodo y frecuencia de ahorro", () => {
       motivo: "El próximo aporte abre en 8 min 20 s.",
     });
 
+    const vencidoSinAporte = sugerirAccion(tanda(), ANA, 5000);
+    expect(vencidoSinAporte.aviso).toMatch(/Recuperar mi aporte/);
+
     const vencidoConAportesPrevios = tanda({
       aportesPorTurno: 4,
       paso: 1,
@@ -423,8 +429,15 @@ describe("periodo y frecuencia de ahorro", () => {
     });
     expect(sugerirAccion(vencidoConAportesPrevios, ANA, 5000).accion).toBe("reclamar");
     expect(
+      sugerirAccion(tanda({ haPagado: true, aportesMiembro: 2 }), ANA, 5000).motivo,
+    ).toMatch(/todos tus aportes/i);
+    expect(
       sugerirAccion(tanda({ estado: "Abortada", haPagado: false, aportesMiembro: 1 }), ANA, 5000)
         .accion,
     ).toBe("reclamar");
+    expect(
+      sugerirAccion(tanda({ estado: "Abortada", haPagado: true, aportesMiembro: 2 }), ANA, 5000)
+        .motivo,
+    ).toMatch(/los aportes que pusiste/i);
   });
 });

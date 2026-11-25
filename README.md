@@ -46,7 +46,7 @@ Ese orden no lo decide nadie a dedo. Se rifa una única vez, en cadena, cuando s
 
 ### 3.1 Arranque: el cupo se llena a firmas
 
-El contrato se despliega con un **cupo** —cuántos campos tiene la ronda— y sin miembros. Nace vacío. Cada lugar se ocupa cuando una wallet firma su propia inscripción:
+El contrato se despliega con un **cupo** —cuántos campos tiene la ronda— y sin miembros. Nace vacío. Cada campo se ocupa cuando una wallet firma su propia inscripción:
 
 ```rust
 pub fn unirse(env: Env, miembro: Address) -> Result<u32, Error>
@@ -171,7 +171,7 @@ cargo test
 | `espera_bloquea_siguiente_aporte_hasta_apertura` | Cuando `espera > 0`, el contrato bloquea el siguiente aporte hasta `apertura` |
 | `resumen_expone_campos_de_periodo` | `resumen` reporta `aportes_por_turno`, `paso`, `espera`, `apertura` y `aportes_miembro` |
 
-La prueba de la rifa verifica **propiedades**, no una secuencia: que el resultado sea una permutación de la lista original y que `a_quien_toca()` coincida con `Orden[0]`. Fijar la secuencia concreta sería frágil —en los tests el PRNG del host se siembra en cero— y no probaría nada sobre la calidad del sorteo.
+La prueba de la rifa verifica **propiedades**, no una secuencia: que el resultado sea una permutación de la lista original y que `a_quien_toca()` coincida con `Orden[0]`. Fijar la secuencia concreta sería frágil —en los tests el PRNG del host se siembra en cero— y no probaría nada sobre la calidad de la rifa.
 
 ## 7. Corrida real en testnet
 
@@ -192,7 +192,7 @@ orden         = []
 a_quien_toca  = null
 ```
 
-Nadie ha puesto un stroop y el contrato ya no acepta aportes: `aportar` responde `Error::NoActiva` mientras esté en inscripción.
+Nadie ha puesto un stroop y el contrato todavía no acepta aportes: `aportar` responde `Error::NoActiva` mientras esté en inscripción.
 
 ### 7.2 Inscripción abierta (una firma por cuenta)
 
@@ -213,7 +213,7 @@ a_quien_toca  = "GAINY…FEE" (carol)
 
 Carol cobra primero, después Ana, después Beto. El paso a `Activa` y la rifa ocurrieron dentro de esa tercera transacción: no hay una función para arrancar la ronda, se arranca sola cuando el cupo se llena.
 
-### 7.3 Ronda 0 — completa
+### 7.3 Turno 1 (`ronda = 0`) — completo
 
 | Acción | Devuelve | Transacción |
 | --- | --- | --- |
@@ -221,9 +221,9 @@ Carol cobra primero, después Ana, después Beto. El paso a `Activa` y la rifa o
 | `aportar` beto | `0` | [`e19b86b7…`](https://stellar.expert/explorer/testnet/tx/e19b86b753ff675c29a299f933b08e3fb3db2617322cea90b101c0aa365f6cfa) |
 | `aportar` carol | `1` | [`56afd6ad…`](https://stellar.expert/explorer/testnet/tx/56afd6adca69139f76dfaf7e3e791844525c7c1a6d6b11fb9b8b346c2a68c575) |
 
-El tercer aporte completó el turno: el contrato movió **30 XLM** de la buchaca a Carol y avanzó a la ronda 1. Los efectos de esa transacción lo dejan por escrito: se debitó la cuota de Carol, se acreditó al contrato y el contrato pagó 30 XLM a su cuenta. El neto del turno es **+20 XLM** antes de comisiones.
+El tercer aporte completó el turno: el contrato movió **30 XLM** de la buchaca a Carol y avanzó al siguiente turno (`ronda = 1`). Los efectos de esa transacción lo dejan por escrito: se debitó la cuota de Carol, se acreditó al contrato y el contrato pagó 30 XLM a su cuenta. El neto del turno es **+20 XLM** antes de comisiones.
 
-### 7.4 Ronda 1 — deserción y devolución
+### 7.4 Turno 2 (`ronda = 1`) — deserción y devolución
 
 Solo Ana aportó:
 
