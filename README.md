@@ -3,6 +3,8 @@
 Una ronda de ahorro circular en Stellar: un grupo de personas aporta la misma cuota cada semana, y cada semana una distinta se lleva la buchaca completa. El orden de cobro se rifa una sola vez, al llenarse el cupo, y nadie —ni quien despliega el contrato— puede cambiarlo después.
 
 - **Red:** Stellar testnet
+- **Probar en vivo (web):** [ronda.pajarobobo.xyz](https://ronda.pajarobobo.xyz/?contrato=CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX)
+
 - **Contrato para la prueba con usuarios:** [`CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX`](https://stellar.expert/explorer/testnet/contract/CBHIPV67AJV5OMBRH5VD7FB47FRFCOTQ67ZMHP6G3QX2LQOWCKAHKPXX) — inscripción abierta, cupo 3, cuota 10 XLM y plazo de una semana por ronda
 - **Contrato de la corrida documentada en §7:** [`CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4`](https://stellar.expert/explorer/testnet/contract/CAERWTX44RAZNQ6UK4XSHB6P22DRPJ4OPBO2QYDZDMHNOWBC5SX47UU4) — abortado; se conserva solo como evidencia histórica
 - **Wasm hash:** `8bd7c0717fb5323233d18edbd7b1b7c37bc3d6d5e17e7aff643c7270e37849be`
