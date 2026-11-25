@@ -110,7 +110,7 @@ Esto tiene un costo, y hay que decirlo claro: **sin admin, un error en los pará
 
 La alternativa (un admin que pueda corregir) reintroduce exactamente el problema que el contrato venía a resolver.
 
-## 5. La aleatoriedad, sin vender humo
+## 5. La aleatoriedad
 
 `env.prng()` en Soroban es un CSPRNG (ChaCha20) sembrado por la red. La documentación del SDK es explícita sobre sus límites:
 
