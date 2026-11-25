@@ -13,9 +13,9 @@ Una ronda de ahorro circular en Stellar para construir el hábito de ahorrar ent
 
 ## 1. El problema
 
-A mucha gente le cuesta sostener una **cultura del ahorro** por cuenta propia: ahorrar solo requiere constancia y es fácil romper la alcancía antes de tiempo. Por eso en Costa Rica y en media Latinoamérica funcionan las rondas entre compas, familia o compañeros de brete: ponen una cuota periódica, el compromiso social ayuda a mantener el hábito y el componente de **azar** —poder llevarse una **buchaca grande** antes que los demás— vuelve el ahorro más interactivo y atractivo.
+A mucha gente le cuesta sostener una **cultura del ahorro** por cuenta propia: ahorrar solo requiere constancia y es fácil romper la alcancía antes de tiempo. De ahí entonces nace la idea de crear esta propuesta para hacer una buchaca por rondas entre compas, familia o compañeros de brete en donde: ponen una cuota periódica, el compromiso social ayuda a mantener el hábito y el componente de **azar** —poder llevarse una **buchaca grande** antes que los demás— vuelve el ahorro más interactivo y atractivo.
 
-Pero la versión tradicional tiene dos puntos de quiebre. El primero es que alguien tiene que guardar la plata de todos, y una persona puede:
+Hay dos puntos de quiebre que se contemplaron como "subproblemas" que suceden a veces en una actividad de este tipo. El primero es que alguien tiene que guardar la plata de todos, y una persona puede:
 
 - quedarse con lo ahorrado y desaparecer,
 - entregarlo tarde o en tractos,
@@ -25,7 +25,7 @@ Pero la versión tradicional tiene dos puntos de quiebre. El primero es que algu
 
 El problema no es la desconfianza entre los miembros. El problema es que el acuerdo necesita un custodio, y el custodio es el eslabón débil: es un punto único de falla que además concentra toda la tentación.
 
-A esto se suma el segundo problema: **el orden de cobro se negocia**. Quien organiza decide quién va primero, y esa decisión tiene un valor económico real. Cobrar primero es recibir un préstamo sin intereses; cobrar de último es prestarle plata gratis a los demás. Si el orden lo elige una persona, la ronda tiene un árbitro con interés propio.
+A esto se suma el otro problema: **el orden de cobro se negocia**. Quien organiza decide quién va primero, y esa decisión tiene un valor económico real. Cobrar primero es recibir un préstamo sin intereses; cobrar de último es prestarle plata gratis a los demás. Si el orden lo elige una persona, la ronda tiene un árbitro con interés propio.
 
 **Por qué este problema y no otro.** Porque ataca un reto real de ahorro cotidiano con reglas verificables en una sola sesión: ahorrar en grupo de forma constante, con una rifa transparente que nadie manipula para sacar la buchaca grande. El proyecto ya está publicado en [ronda.pajarobobo.xyz](https://ronda.pajarobobo.xyz) en testnet, listo para que cualquiera cree una ronda nueva vacía desde su navegador o pruebe una con el cupo, cuota y ritmo que prefiera.
 
